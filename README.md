@@ -1,6 +1,6 @@
 # Posterior Meta-Replay for Continual Learning
 
-In this study we propose posterior-replay continual learning, a framework for continually learning task-specific posterior approximations within a single shared meta-model. Across a range of experiments, we compare this approach to prior-focused CL, for which a single trade-off solution across all tasks is recursively obtained. 
+In this study we propose posterior-replay continual learning, a framework for continually learning task-specific posterior approximations within a single shared meta-model. Across a range of experiments, we compare this approach to prior-focused CL, for which a single trade-off solution across all tasks is recursively obtained. Please see [our paper](https://arxiv.org/abs/2103.01133) for more details.
 
 ### 1D Regression Experiments
 
@@ -26,5 +26,11 @@ Please refer to the [README](docs/README.md) in the subfolder [docs](docs) for i
 Please cite our corresponding papers if you use this code in your research project.
 
 ```
-TBA
+@misc{posterior:replay:2021:henning:cervera,
+      title={Posterior Meta-Replay for Continual Learning}, 
+      author={Christian Henning and Maria R. Cervera and Francesco D'Angelo and Johannes von Oswald and Regina Traber and Benjamin Ehret and Seijin Kobayashi and João Sacramento and Benjamin F. Grewe},
+      year={2021},
+      eprint={2103.01133},
+      archivePrefix={arXiv}
+}
 ```
