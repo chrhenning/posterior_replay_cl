@@ -26,11 +26,11 @@ Please refer to the [README](docs/README.md) in the subfolder [docs](docs) for i
 Please cite our corresponding papers if you use this code in your research project.
 
 ```
-@misc{posterior:replay:2021:henning:cervera,
-      title={Posterior Meta-Replay for Continual Learning}, 
+@inproceedings{posterior:replay:2021:henning:cervera,
+title={Posterior Meta-Replay for Continual Learning}, 
       author={Christian Henning and Maria R. Cervera and Francesco D'Angelo and Johannes von Oswald and Regina Traber and Benjamin Ehret and Seijin Kobayashi and João Sacramento and Benjamin F. Grewe},
-      year={2021},
-      eprint={2103.01133},
-      archivePrefix={arXiv}
+booktitle={Conference on Neural Information Processing Systems},
+year={2021},
+url={https://arxiv.org/abs/2103.01133}
 }
 ```
