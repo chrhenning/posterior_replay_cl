@@ -2,6 +2,8 @@
 
 In this study we propose posterior-replay continual learning, a framework for continually learning task-specific posterior approximations within a single shared meta-model. Across a range of experiments, we compare this approach to prior-focused CL, for which a single trade-off solution across all tasks is recursively obtained. Please see [our paper](https://arxiv.org/abs/2103.01133) for more details.
 
+If you are interested in working with **hypernetworks in PyTorch**, check out the package [hypnettorch](https://github.com/chrhenning/hypnettorch).
+
 ### 1D Regression Experiments
 
 You can find instructions on how to reproduce our 1D Regression experiments and on how to use the corresponding code in the subfolder [probabilistic/regression](probabilistic/regression).
