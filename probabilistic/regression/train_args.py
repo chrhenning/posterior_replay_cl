@@ -214,7 +214,8 @@ def data_args(parser):
                              'Default: %(default)s.')
     return dgroup
 
-def mc_args(tgroup, vgroup, show_train_sample_size=True, dval_sample_size=10):
+def mc_args(tgroup, vgroup, show_train_sample_size=True,
+            show_val_sample_size=True, dval_sample_size=10):
     """This is a helper function of the function :func:`parse_cmd_arguments` to
     add arguments to the training and validation argument group for options
     specific to the Monte-Carlos sampling procedure used to approximate the loss
@@ -225,7 +226,9 @@ def mc_args(tgroup, vgroup, show_train_sample_size=True, dval_sample_size=10):
             :func:`utils.cli_args.train_args`.
         vgroup: The argument group returned by method
             :func:`utils.cli_args.eval_args`.
-        show_train_sample_size (bool): Whether option `show_train_sample_size`
+        show_train_sample_size (bool): Whether option `train_sample_size`
+            should be shown.
+        show_val_sample_size (bool): Whether option `val_sample_size`
             should be shown.
         dval_sample_size (int): Default value of option `val_sample_size`.
     """
@@ -236,15 +239,17 @@ def mc_args(tgroup, vgroup, show_train_sample_size=True, dval_sample_size=10):
                                  'approximation of the negative log ' +
                                  'likelihood in the loss. ' +
                                  'Default: %(default)s.')
-    vgroup.add_argument('--val_sample_size', type=int, metavar='N',
-                        default=dval_sample_size,
-                        help='How many weight samples should be drawn to ' +
-                             'calculate an MC sample of the predictive ' +
-                             'distribution. Default: %(default)s.')
+    if show_val_sample_size:
+        vgroup.add_argument('--val_sample_size', type=int, metavar='N',
+                            default=dval_sample_size,
+                            help='How many weight samples should be drawn to ' +
+                                 'calculate an MC sample of the predictive ' +
+                                 'distribution. Default: %(default)s.')
 
 
-def train_args(tgroup, show_ll_dist_std=True, show_local_reparam_trick=False,
-               show_kl_scale=False, show_radial_bnn=False):
+def train_args(tgroup, show_prior_variance=True, show_ll_dist_std=True,
+               show_local_reparam_trick=False, show_kl_scale=False,
+               show_radial_bnn=False):
     """This is a helper function of the function :func:`parse_cmd_arguments` to
     add arguments to the training argument group specific to training
     probabilistic models.
@@ -252,6 +257,8 @@ def train_args(tgroup, show_ll_dist_std=True, show_local_reparam_trick=False,
     Args:
         tgroup: The argument group returned by function
             :func:`utils.cli_args.train_args`.
+        show_prior_variance (bool): Whether the option
+            `prior_variance` should be provided.
         show_ll_dist_std (bool): Whether the option
             `local_reparam_trick` should be provided.
         show_local_reparam_trick (bool): Whether the option
@@ -261,9 +268,10 @@ def train_args(tgroup, show_ll_dist_std=True, show_local_reparam_trick=False,
         show_radial_bnn (bool): Whether the option
             `radial_bnn` should be provided.
     """
-    tgroup.add_argument('--prior_variance', type=float, default=1.0,
-                        help='Variance of the Gaussian prior. ' +
-                             'Default: %(default)s.')
+    if show_prior_variance:
+        tgroup.add_argument('--prior_variance', type=float, default=1.0,
+                            help='Variance of the Gaussian prior. ' +
+                                 'Default: %(default)s.')
     if show_ll_dist_std:
         tgroup.add_argument('--ll_dist_std', type=float, default=0.1,
                             help='The standard deviation of the likelihood ' +
@@ -312,6 +320,13 @@ def cl_args(clgroup):
                              '; "w2", the 2-wasserstein distance between the ' +
                              'posterior distributions before and after ' +
                              'learning the current task. Default: %(default)s.')
+    clgroup.add_argument('--hnet_out_masking', type=float, default=0,
+                        help='Fraction of task-conditioned hypernetwork ' +
+                             'outputs that should be masked using a per-layer '+
+                             'task-specific binary mask. A value of 0 means ' +
+                             'that no outputs are masked while a value of 1 ' +
+                             'means that all weights other than the output ' +
+                             'weights are masked. Default: %(default)s.')
 
 def init_args(agroup):
     """This is a helper function of the function :func:`parse_cmd_arguments` to
@@ -474,12 +489,6 @@ def check_invalid_bbb_args(config):
         if config.use_logvar_enc:
             warnings.warn('Option "use_logvar_enc" not applicable to ' +
                           'deterministic networks.')
-    if config.regularizer != 'mse':
-        if hasattr(config, 'hnet_reg_batch_size') and \
-                config.hnet_reg_batch_size != -1:
-            raise NotImplementedError('Mini-batching of regularizer other ' +
-                                      'than the MSE reg is not implemented ' +
-                                      'yet.')
 
     if config.radial_bnn:
         if config.local_reparam_trick:
@@ -512,6 +521,25 @@ def check_invalid_args_general(config):
             config.store_final_model and config.train_from_scratch:
         warnings.warn('Note, when training from scratch, the final model is ' +
                       'only trained on the last task!')
+
+    if hasattr(config, 'hnet_out_masking'):
+        if config.hnet_out_masking > 1. or config.hnet_out_masking < 0.:
+            raise ValueError('Fraction of hypernetwork outputs to be masked ' +
+                             'should be between 0 and 1.')
+        if config.hnet_out_masking != 0:
+            if not hasattr(config, 'mean_only') or not config.mean_only:
+                # Prior-matching needs to be adapted for non-det methods and
+                # for masks need to be synchronized if means and variances are
+                # in the main net.
+                raise NotImplementedError('Masking of the hnet output only ' +
+                    'implemented yet for deterministic solutions.')
+    if hasattr(config, 'supsup_task_inference'):
+        if config.supsup_task_inference:
+            pass
+        if not config.supsup_task_inference:
+            if config.supsup_grad_steps != 1:
+                warnings.warn('The number of SupSup steps is irrelevant if ' +
+                              '"supsup_task_inference" is not activated.')
 
 if __name__ == '__main__':
     pass

@@ -125,7 +125,7 @@ def test(data_handlers, mnet, hnet, hhnet, device, config, shared, logger,
     # into disentangling it.
     logger.info('### Testing all trained tasks ... ###')
 
-    assert method in ['avb', 'bbb', 'ewc', 'ssge']
+    assert method in ['avb', 'bbb', 'ewc', 'ssge', 'mt']
 
     if test_ids is not None:
         assert np.all(np.array(test_ids) >= 0) and \
@@ -189,6 +189,7 @@ def test(data_handlers, mnet, hnet, hhnet, device, config, shared, logger,
             # measure the uncertainty of dataset i on task j.
             # Note, we will always load the corresponding checkpoint of task j
             # before using these networks.
+            assert not method == 'mt'
             if method == 'avb' or method == 'ssge' or method == 'ewc':
                 mnet_other, hnet_other, hhnet_other, _ = \
                     pcutils.generate_networks(config, shared, logger,
@@ -291,7 +292,8 @@ def test(data_handlers, mnet, hnet, hhnet, device, config, shared, logger,
 
                     if method == 'avb' or method == 'ssge':
                         current_weights = ret_vals.theta
-                    elif method == 'ewc' and normal_post is None:
+                    elif method == 'ewc' and normal_post is None \
+                            or method == 'mt':
                         # True for all EWC runs, even if normal_post is given!
                         current_weights = mnet_j.internal_params
                     else:
@@ -501,6 +503,87 @@ def test(data_handlers, mnet, hnet, hhnet, device, config, shared, logger,
                     writer.add_scalar('test/task_%d/hnet_out_forgetting' % i,
                                       W_dis, n)
 
+    ### Compute task-inference accuracy superposing the task embeddings.
+    if hasattr(config, 'supsup_task_inference') and \
+            config.supsup_task_inference:
+        assert np.all(np.equal(range(n), test_ids))
+
+        if config.train_from_scratch:
+            raise NotImplementedError()
+
+        ### For each data set (i.e., for each task).
+        task_inference_acc_ent_grad = []
+        for i in test_ids:
+            data = data_handlers[i]
+
+            ### Task inference.
+            # As opposed to above, here we generate a superposed model, which
+            # consists of a weighted sum of task-specific embeddings, in order
+            # to obtain a weight-generator that represents a combination of
+            # all tasks, and generate predictions using this superposed model.
+            # Then we compute the gradient of the entropy with respect to the
+            # weight given to each model (alpha loadings), and select the task
+            # as the one having the largest negative gradient (i.e. the task
+            # whose contribution to the entropy computation can lead to the
+            # largest decrease).
+
+            # The alphas are initialized uniformly across models.
+            alphas = 1/shared.num_trained * torch.ones((shared.num_trained),
+                requires_grad=True, device=device)
+
+            for _ in range(config.supsup_grad_steps):
+                # Compute task-inference accuracy on data from task i.
+                if method == 'avb' or method == 'ssge':
+                    raise NotImplementedError('TODO')
+                else:
+                    disable_lrt = config.disable_lrt_test if \
+                        hasattr(config, 'disable_lrt_test') else False
+                    acc, ret_vals = pmutils.compute_acc(i, data, mnet,
+                        hnet, device, config, shared, split_type='test',
+                        return_dataset=False, return_entropies=True,
+                        deterministic_sampling=True, alphas=alphas,
+                        disable_lrt=disable_lrt, normal_post=normal_post)
+                entropy = ret_vals.entropies
+
+                # We choose the task embedding leading to the highest decrease
+                # in entropy grad (argmax -dH = argmin dH).
+                # FIXME. Incredibly inefficient, how to do this in a one-liner?
+                # ent_grad = torch.autograd.grad(entropy.sum(), alphas, 
+                #   only_inputs=True)[0]
+                inferred_task_ids_ent = np.empty(len(entropy))
+                all_ent_grad = []
+                for b in range(len(entropy)): # iterate across batch size
+                    retain_graph = True if b < len(entropy)-1 else False
+                    # Compute the gradient of the entropy for the specific input
+                    # with respect to the alpha values.
+                    ent_grad = torch.autograd.grad(entropy[b], \
+                        alphas, only_inputs=True, retain_graph=retain_graph)[0]
+                    all_ent_grad.append(ent_grad.detach().cpu().numpy())
+                    inferred_task_ids_ent[b] = torch.argmin(ent_grad).item()
+                    assert inferred_task_ids_ent[b] in range(shared.num_trained)
+
+                # Compute average gradient across all input samples.
+                alphas_grad = torch.tensor(all_ent_grad, device=device)\
+                    .mean(axis=0)
+
+                # Update the alphas (only useful for more than one iteration).
+                alphas = alphas.detach().clone() - config.supsup_lr*alphas_grad
+                alphas.requires_grad = True
+
+            ### Compute accuracy of task inference
+            # I.e., how often the correct tast embedding would have been chosen.
+            # Note, this is again not necessary for CL1, but interesting.
+            supsup_num_correct_ent = np.sum(inferred_task_ids_ent == i)
+            task_inference_acc_ent_grad.append(100.* supsup_num_correct_ent /\
+                data.num_test_samples)
+
+            if verbose:
+                logger.debug('Test: Task %d - Task inference accuracy based ' %\
+                             (i+1) + 'on entropy gradient: %.2f%%.' \
+                             % (task_inference_acc_ent_grad[i]))
+            writer.add_scalar('test/task_%d/task_inference_acc_ent_grad' % i,
+                              task_inference_acc_ent_grad[i], n)
+
     ### Update performance summary.
     s = shared.summary
 
@@ -526,6 +609,11 @@ def test(data_handlers, mnet, hnet, hhnet, device, config, shared, logger,
         if tested_all else -1
     s['avg_task_inference_acc_agree'] = task_inference_acc_agree.mean()  \
         if tested_all else -1
+    if hasattr(config, 'supsup_task_inference') and \
+            config.supsup_task_inference:
+        s['avg_task_inference_acc_ent_grad'] = \
+            np.mean(task_inference_acc_ent_grad) if tested_all else -1
+        s['task_inference_acc_ent_grad'] = task_inference_acc_ent_grad
 
     if config.cl_scenario == 1:
         # Accuracy has been computed assuming we always knew the correct
@@ -573,6 +661,13 @@ def test(data_handlers, mnet, hnet, hhnet, device, config, shared, logger,
                                        task_inference_acc_agree.std()))
     writer.add_scalar('test/task_inference_acc_agree',
                       task_inference_acc_agree.mean(), n)
+    if hasattr(config, 'supsup_task_inference') and \
+            config.supsup_task_inference:
+        logger.info('Test: Avg. task inference accuracy (entropy-grad): ' +
+                    '%.2f (std: %.2f).' % (np.mean(task_inference_acc_ent_grad),
+                                           np.std(task_inference_acc_ent_grad)))
+        writer.add_scalar('test/task_inference_acc_ent_grad',
+                          np.mean(task_inference_acc_ent_grad), n)
 
     logger.info('Test: Avg. accuracy when using correct embeddings: ' +
                 '%.2f (std: %.2f).'
@@ -1171,11 +1266,11 @@ def train(task_id, data, mnet, hnet, hhnet, dis, device, config, shared, logger,
             if config.past_and_future_coresets:
                 cs_all = shared.coreset[shared.task_ident != task_id]
                 batch_inds = np.random.randint(0, cs_all.shape[0],
-                                               config.batch_size)
+                                               config.coreset_batch_size)
                 coreset = cs_all[batch_inds]
             else:
                 batch_inds = np.random.randint(0, shared.coreset.shape[0],
-                                               config.batch_size)
+                                               config.coreset_batch_size)
                 coreset = shared.coreset[batch_inds]
             #cs_task_ids = shared.task_ident[batch_inds]
             #cs_tasks = np.unique(cs_task_ids)
@@ -1188,7 +1283,7 @@ def train(task_id, data, mnet, hnet, hhnet, dis, device, config, shared, logger,
             # Construct maximum entropy targets for coreset samples.
             target_size = len(allowed_outputs) if config.cl_scenario != 2 \
                     else data.num_classes
-            cs_targets = torch.ones(config.batch_size, target_size). \
+            cs_targets = torch.ones(config.coreset_batch_size, target_size). \
                 to(device) / target_size
 
             for j in range(config.train_sample_size):

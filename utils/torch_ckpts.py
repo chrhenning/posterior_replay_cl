@@ -301,7 +301,7 @@ def get_best_ckpt_path(file_path):
                 f.startswith(fname)]
 
     best_ckpt_path = None
-    best_score = -1
+    best_score = float('-inf')
 
     for fn, fpath in ckpt_fns:
         ckpt = torch.load(fpath)

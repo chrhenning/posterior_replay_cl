@@ -87,6 +87,7 @@ grid = {
     #'coreset_size': [-1],
     #'per_task_coreset': [False],
     #'coreset_reg': [1.],
+    #'coreset_batch_size': [-1],
     #'past_and_future_coresets': [False],
 
     ### Main network options ###

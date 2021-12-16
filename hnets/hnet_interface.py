@@ -794,7 +794,7 @@ hyper_shapes_learned` (if specified) or the length of attribute
         #####################
         ### Parse Weights ###
         #####################
-        # We first parse the weights as they night be needed later to choose
+        # We first parse the weights as they might be needed later to choose
         # inputs via `cond_id`.
         uncond_weights = self.unconditional_params
         cond_weights = self.conditional_params

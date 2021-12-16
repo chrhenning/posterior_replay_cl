@@ -56,7 +56,9 @@ grid = {
     #'split_head_cl3' : [False],
     #'num_tasks' : [6],
     #'num_classes_per_task': [10],
+    #'skip_tasks': [0],
     #'regularizer' : ['mse'], # 'mse', 'fkl', 'rkl', 'w2'
+    #'hnet_out_masking': [0],
 
     ### Training options ###
     #'batch_size' : [32],
@@ -90,6 +92,9 @@ grid = {
     #'coreset_size': [-1],
     #'per_task_coreset': [False],
     #'coreset_reg': [1.],
+    #'coreset_batch_size': [-1],
+    #'coresets_for_experience_replay': [False],
+    #'fix_coreset_size': [False],
     #'past_and_future_coresets': [False],
     #'final_coresets_finetune': [False],
     #'final_coresets_single_task': [False],
@@ -100,7 +105,8 @@ grid = {
     #'final_coresets_balance': [-1],
 
     ### Main network options ###
-    #'net_type': ['resnet'], #  'resnet', 'wrn', 'lenet', 'zenke', 'mlp'
+    #'net_type': ['resnet'], # 'resnet', 'wrn', 'iresnet', 'lenet', 'zenke',
+                             # 'mlp'
     #'mlp_arch': ['"400,400"'],
     #'lenet_type' : ['cifar'],
     #'resnet_block_depth': [5],
@@ -108,6 +114,11 @@ grid = {
     #'wrn_block_depth': [4],
     #'wrn_widening_factor': [10],
     #'wrn_use_fc_bias': [False],
+    #'iresnet_use_fc_bias': [False],
+    #'iresnet_channel_sizes': ['"64,64,128,256,512"'],
+    #'iresnet_blocks_per_group': ['"2,2,2,2"'],
+    #'iresnet_bottleneck_blocks': [False],
+    #'iresnet_projection_shortcut': [False],
     #'no_bias' : [False],
     #'dropout_rate' : [-1],
     #'no_batchnorm': [False],

@@ -160,6 +160,18 @@ PermtuedMNIST-100
 
 These architectures are for the task setup ``--num_tasks=100``.
 
+Default MLP (1000-1000)
+^^^^^^^^^^^^^^^^^^^^^^^
+
+This architecture ``--mlp_arch=1000,1000 --padding=2`` has 3,027,000 weights.
+
+  - ``''`` -> 45000
+  - ``'100,100'`` -> 29000
+  - ``'50,50,50,50'`` -> 58000
+  - ``'100,250,500'`` -> 5000
+
+**TODO**
+
 Gaussian Default MLP (1000-1000)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

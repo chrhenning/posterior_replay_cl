@@ -57,6 +57,14 @@ Module *mnet_interface*
     :undoc-members:
     :show-inheritance:
 
+Module *resnet_imgnet*
+======================
+
+.. automodule:: mnets.resnet_imgnet
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Module *resnet*
 ===============
 

@@ -33,7 +33,14 @@ and here another example if the cluster is using the SLURM scheduler:
 
 .. code-block:: console
 
-   $ python3 gather_seeds_bbb.py --run_dir=out_bbb/example_bbb_run --config=./seeds_example_run_bbb --num_seeds=10 --start_gathering --run_cluster --scheduler=slurm --slurm_partition=vesta --slurm_qos=medium --hps_num_hours=4 --num_hours=24 --slurm_mem=8GB --run_cwd="$(pwd -P)"
+   $ python3 gather_seeds_bbb.py --run_dir=out_bbb/example_bbb_run --config_name=./seeds_example_run_bbb --num_seeds=10 --start_gathering --run_cluster --scheduler=slurm --slurm_partition=vesta --slurm_qos=medium --hps_num_hours=4 --num_hours=24 --slurm_mem=8GB --run_cwd="$(pwd -P)"
+
+and here another example if running on a multi-GPU workstation without job
+scheduler:
+
+.. code-block:: console
+
+   $ python3 gather_seeds_perm_bbb.py --run_dir=out_bbb/example_bbb_run --config_name=./seeds_example_run_bbb --num_seeds=10 --start_gathering --allowed_load=0.5 --allowed_memory=0.5 --sim_startup_time=60 --visible_gpus="0,1,2,3" --max_num_jobs_per_gpu=1 --run_cwd="$(pwd -P)"
 """
 # Do not delete the following import for all executable scripts!
 import __init__ # pylint: disable=unused-import

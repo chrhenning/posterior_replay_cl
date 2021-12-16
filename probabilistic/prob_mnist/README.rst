@@ -38,11 +38,27 @@ The following run with a **large MLP** achieves 99.67% CL1 and 74.43% CL3-ent.
 
     $ python3 train_split_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --chmlp_chunk_size=4500 --beta=2.0 --cl_scenario=3 --split_head_cl3 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=-1 --num_kl_samples=20 --during_acc_criterion=0.95 --net_type=mlp --hnet_type=chunked_hmlp --hmlp_arch=100,100 --chunk_emb_size=32 --hnet_net_act=sigmoid --mean_only
 
+The following run with a **large MLP** and single-task CL regularization achieves 99.64% CL1 and 71.34% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_split_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --beta=10.0 --cl_scenario=3 --split_head_cl3 --batch_size=128 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=-1 --calc_hnet_reg_targets_online --hnet_reg_batch_size=1 --num_kl_samples=20 --during_acc_criterion=0.95 --net_type=mlp --hnet_type=chunked_hmlp --hmlp_arch=100,100 --cond_emb_size=32 --chmlp_chunk_size=4500 --chunk_emb_size=32 --hnet_net_act=sigmoid --std_normal_init=0.02 --std_normal_temb=1.0 --std_normal_emb=1.0 --mean_only
+
 The following run with a **large Lenet** achieves 99.91% CL1 and 82.75% CL3-ent.
 
 .. code-block:: console 
 
     $ python3 train_split_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --chmlp_chunk_size=38000 --beta=2.0 --cl_scenario=3 --split_head_cl3 --n_iter=5000 --lr=0.001 --use_adam --clip_grad_norm=-1 --num_kl_samples=10 --during_acc_criterion=0.95 --net_type=lenet --lenet_type=mnist_large --hnet_type=chunked_hmlp --hmlp_arch=10,10 --chunk_emb_size=16 --hnet_net_act=relu --mean_only
+
+
+Deterministic Task-specific Solutions with SupSup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following run with a **large MLP** achieves 99.66% CL1 and 71.22% CL3-ent, with task-inference accuracy of 71% based on entropy and 88% based on the entropy gradient.
+
+.. code-block:: console
+
+    $ python3 train_split_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --hnet_reg_batch_size=-1 --chmlp_chunk_size=4500 --beta=0.1 --cl_scenario=3 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=-1 --num_kl_samples=1 --during_acc_criterion=0.95 --supsup_task_inference --supsup_lr=0.001 --supsup_grad_steps=20 --net_type=mlp --hnet_type=chunked_hmlp --hmlp_arch=100,100 --chunk_emb_size=32 --hnet_net_act=relu --mean_only
 
 Task-specific Posterior with BbB
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -58,6 +74,12 @@ The following run with a **large MLP** achieves 99.72% CL1 and 71.73% CL3-ent.
 .. code-block:: console 
 
     $ python3 train_split_bbb.py --momentum=-1 --chmlp_chunk_size=1350 --beta=0.1 --cl_scenario=3 --split_head_cl3 --regularizer=fkl --n_iter=2000 --lr=0.0001 --use_adam --clip_grad_norm=-1 --train_sample_size=10 --kl_scale=1e-06 --num_kl_samples=20 --net_type=mlp --hnet_type=chunked_hmlp --hmlp_arch=100,250,500 --cond_emb_size=64 --chunk_emb_size=32 --use_cond_chunk_embs --hnet_net_act=relu --keep_orig_init
+
+The following run with a **large MLP** and single-task CL regularization achieves 99.73% CL1 and 72.38% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_split_bbb.py --momentum=-1 --beta=0.1 --cl_scenario=3 --split_head_cl3 --regularizer=fkl --batch_size=128 --n_iter=2000 --lr=0.0001 --use_adam --clip_grad_norm=-1 --train_sample_size=10 --kl_scale=1e-06 --calc_hnet_reg_targets_online --hnet_reg_batch_size=1 --num_kl_samples=20 --net_type=mlp --hnet_type=chunked_hmlp --hmlp_arch=100,250,500 --cond_emb_size=64 --chmlp_chunk_size=1350 --chunk_emb_size=32 --use_cond_chunk_embs --hnet_net_act=relu --keep_orig_init
 
 The following run with a **large Lenet** achieves 99.20% CL1 and 74.09% CL3-ent.
 
@@ -149,6 +171,21 @@ The following run with a **large Lenet** achieves 97.43% CL1 and 63.05% CL3-ent.
 
     $ python3 train_split_bbb.py --momentum=-1 --cl_scenario=3 --split_head_cl3 --batch_size=32 --n_iter=5000 --lr=1e-05 --use_adam --clip_grad_norm=1.0 --train_sample_size=10 --kl_scale=0.01 --use_prev_post_as_prior --net_type=lenet --lenet_type=mnist_large --mnet_only
 
+Experience replay
+^^^^^^^^^^^^^^^^^
+
+The following run with a **small MLP** achieves 86.84% CL1 and 86.84% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_split_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --cl_scenario=3 --batch_size=8 --n_iter=1000 --lr=0.0005 --use_adam --clip_grad_norm=100.0 --num_kl_samples=1 --net_type=mlp --mlp_arch=100,100 --net_act=relu --dropout_rate=-1 --coreset_size=100 --per_task_coreset --coreset_reg=100.0 --coreset_batch_size=16 --fix_coreset_size --coresets_for_experience_replay --mnet_only --mean_only --during_acc_criterion=85
+
+The following run with a **large MLP** achieves 88.85% CL1 and 88.85% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_split_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --cl_scenario=3 --batch_size=8 --n_iter=1000 --lr=0.0001 --use_adam --clip_grad_norm=100.0 --num_kl_samples=1 --during_acc_criterion=90 --coreset_size=100 --per_task_coreset --coreset_reg=500 --coreset_batch_size=16 --fix_coreset_size --coresets_for_experience_replay --net_type=mlp --mlp_arch=400,400 --mnet_only --mean_only
+
 Training separate Gaussian main networks
 """"""""""""""""""""""""""""""""""""""""
 
@@ -159,6 +196,12 @@ The following run with a **large MLP** achieves 99.81% CL1 and 68.40% CL3-ent.
 .. code-block:: console 
 
     $ python3 train_split_bbb.py --disable_lrt_test --momentum=-1 --train_from_scratch --cl_scenario=3 --split_head_cl3 --batch_size=128 --n_iter=3000 --lr=0.0005 --use_adam --clip_grad_norm=-1 --train_sample_size=20 --prior_variance=1.0 --local_reparam_trick --kl_scale=0.001 --net_type=mlp --mnet_only
+
+The following run with a **small MLP** achieves 99.79% CL1 and 68.85% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_split_bbb.py --momentum=-1 --beta=1.0 --train_from_scratch --cl_scenario=3 --split_head_cl3 --num_tasks=5 --num_classes_per_task=2 --regularizer=rkl --batch_size=128 --n_iter=2000 --lr=0.001 --use_adam --clip_grad_norm=-1 --train_sample_size=50 --prior_variance=1.0 --kl_scale=0.01 --net_type=mlp --mlp_arch=100,100 --mnet_only 
 
 The following run with a **large Lenet** achieves 99.93% CL1 and 85.52% CL3-ent.
 
@@ -184,6 +227,12 @@ Training separate deterministic main networks
 We can use the code to train seperate deterministic main networks. The option ``--mean_only`` ensures that the Gaussian main network becomes a normal main network. The option ``--main_only`` ensures that we train without a hypernetwork. Via the option ``--train_from_scratch`` we are able to train separate networks.
 
 Hence, this control can be viewed as training an ensemble of size 1 per task.
+
+The following run with a **small MLP** achieves 99.77% CL1 and 67.89% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_split_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --beta=10.0 --train_from_scratch --cl_scenario=3 --split_head_cl3 --num_tasks=5 --num_classes_per_task=2 --batch_size=128 --n_iter=5000 --lr=0.0005 --use_adam --clip_grad_norm=-1 --net_type=mlp --mlp_arch=100,100 --mnet_only --mean_only
 
 The following run with a **large MLP** achieves 99.77% CL1 and 70.39% CL3-ent.
 
@@ -322,8 +371,8 @@ The following run with a **large Lenet** achieves 99.77% CL1 and 97.74% CL3-ent.
 
     $ python3 train_split_bbb.py --momentum=-1 --beta=1 --cl_scenario=3 --split_head_cl3 --num_tasks=5 --num_classes_per_task=2 --regularizer=fkl --batch_size=128 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=-1 --train_sample_size=1 --prior_variance=1.0 --kl_scale=0.001 --coreset_size=500 --per_task_coreset --final_coresets_finetune --final_coresets_kl_scale=-1 --final_coresets_n_iter=-1 --net_type=lenet --lenet_type=mnist_large --net_act=relu --dropout_rate=-1 --hnet_type=chunked_hmlp --hmlp_arch=10,10 --cond_emb_size=64 --chmlp_chunk_size=78000 --chunk_emb_size=32 --hnet_net_act=relu --std_normal_temb=1.0 --std_normal_emb=1.0 --keep_orig_init
 
-Permuted MNIST
---------------
+Permuted MNIST-10
+-----------------
 
 Please run the following command to see the available options for running Permuted MNIST experiments.
 
@@ -406,6 +455,36 @@ The following run with a **large MLP** achieves 97.39% CL1 and 93.58% CL3-ent.
 
     $ python3 train_perm_ssge.py --momentum=-1 --imp_chmlp_chunk_size=70000 --hh_chmlp_chunk_size=20000 --beta=10.0 --cl_scenario=3 --split_head_cl3 --num_tasks=10 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=1.0 --train_sample_size=1 --kl_scale=0.01 --num_kl_samples=10 --during_acc_criterion=86 --imp_hnet_type=chunked_hmlp --imp_hmlp_arch=20,20 --imp_chunk_emb_size=32 --imp_hnet_net_act=relu --full_support_perturbation=0.01 --hh_hnet_type=chunked_hmlp --hh_hmlp_arch=100,100 --hh_cond_emb_size=32 --hh_chunk_emb_size=16 --hh_use_cond_chunk_embs --hh_hnet_net_act=relu --latent_dim=16 --latent_std=0.1 --thr_ssge_eigenvals=1.0 --ssge_sample_size=1
 
+Separate Posterior with BbB
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following run with a **large MLP** achieves 97.13% CL1 and 92.95% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_perm_bbb.py --momentum=-1 --train_from_scratch --cl_scenario=3 --split_head_cl3 --num_tasks=10 --batch_size=128 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=1.0 --train_sample_size=10 --prior_variance=1.0 --kl_scale=5e-05 --num_kl_samples=10 --mnet_only
+
+The following run with a **small MLP** achieves 98.21% CL1 and 98.12% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_perm_bbb.py --momentum=-1 --train_from_scratch --cl_scenario=3 --split_head_cl3 --num_tasks=10 --batch_size=128 --n_iter=5000 --lr=0.001 --use_adam --clip_grad_norm=1.0 --train_sample_size=50 --prior_variance=1.0 --kl_scale=0.1 --mlp_arch=100,100 --net_act=relu --mnet_only --padding=0 
+
+Training separate deterministic main networks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The following run with a **large MLP** achieves 98.16% CL1 and 94.70% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_perm_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --train_from_scratch --cl_scenario=3 --split_head_cl3 --num_tasks=10 --batch_size=128 --n_iter=5000 --lr=0.001 --use_adam --clip_grad_norm=1.0 --num_kl_samples=1 --mnet_only --mean_only
+
+The following run with a **small MLP** achieves 97.04% CL1 and 90.73% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_perm_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --train_from_scratch --cl_scenario=3 --split_head_cl3 --num_tasks=10 --batch_size=64 --n_iter=2500 --lr=0.001 --use_adam --clip_grad_norm=1.0 --num_kl_samples=1 --mlp_arch=100,100 --net_act=relu --mnet_only --mean_only --during_acc_criterion=85 --padding=0
+
+
 Shared Posterior with VCL
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -423,6 +502,22 @@ The following run with a **large MLP** achieves 94.73% CL1 and 81.12% CL3-ent.
 .. code-block:: console 
 
     $ python3 train_perm_ewc.py --momentum=-1 --cl_scenario=3 --split_head_cl3 --num_tasks=10 --batch_size=32 --n_iter=5001 --lr=0.0001 --use_adam --clip_grad_norm=100 --prior_variance=0.1 --ewc_gamma=1.0 --ewc_lambda=0.01 --n_fisher=200
+
+Permuted MNIST-100
+------------------
+
+The following **PR-Dirac-SR** run with a **large MLP** achieves 95.90% CL1 and 70.08% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_perm_bbb.py --kl_scale=0 --kl_schedule=0 --regularizer=mse --train_sample_size=1 --val_sample_size=1 --momentum=-1 --chmlp_chunk_size=29000 --beta=100.0 --cl_scenario=3 --split_head_cl3 --num_tasks=100 --batch_size=128 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=-1 --calc_hnet_reg_targets_online --hnet_reg_batch_size=8 --mlp_arch=1000,1000 --net_act=relu --hnet_type=chunked_hmlp --hmlp_arch=100,100 --cond_emb_size=16 --chunk_emb_size=16 --hnet_net_act=relu --std_normal_temb=1.0 --std_normal_emb=0.1 --full_test_interval=25 --mean_only --padding=2
+
+The following **PR-BbB-SR** run with a **large MLP** achieves 96.84% CL1 and 85.84% CL3-ent.
+
+.. code-block:: console 
+
+    $ python3 train_perm_bbb.py --momentum=-1 --chmlp_chunk_size=55000 --beta=1000.0 --cl_scenario=3 --split_head_cl3 --num_tasks=100 --regularizer=rkl --batch_size=128 --n_iter=5000 --lr=0.0001 --use_adam --clip_grad_norm=100.0 --train_sample_size=10 --prior_variance=1.0 --kl_scale=0.01 --calc_hnet_reg_targets_online --hnet_reg_batch_size=8 --mlp_arch=1000,1000 --net_act=relu --hnet_type=chunked_hmlp --hmlp_arch=100,100 --cond_emb_size=32 --chunk_emb_size=32 --hnet_net_act=sigmoid --std_normal_temb=1.0 --std_normal_emb=1.0 --keep_orig_init --full_test_interval=25 --store_final_model --padding=2
+
 
 Miscellaneous
 -------------

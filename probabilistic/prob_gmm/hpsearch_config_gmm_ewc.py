@@ -56,6 +56,7 @@ grid = {
     #'cl_scenario' : [1], # 1, 2 or 3
     #'split_head_cl3' : [False],
     #'non_growing_sf_cl3' : [False],
+    #'det_multi_head': [False],
 
     ### Training options ###
     #'batch_size' : [32],

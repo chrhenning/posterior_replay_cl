@@ -56,6 +56,7 @@ grid = {
     #'num_tasks' : [5],
     #'num_classes_per_task': [2],
     #'non_growing_sf_cl3' : [False],
+    #'det_multi_head': [False],
 
     ### Training options ###
     #'batch_size' : [128], # RELATED WORK - 128

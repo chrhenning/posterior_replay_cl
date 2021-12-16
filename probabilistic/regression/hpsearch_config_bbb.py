@@ -35,9 +35,10 @@ more information on this files content.
 grid = {
     ### Continual learning options ###
     'beta' : [0.005],
-    #'train_from_scratch' : [False]
+    #'train_from_scratch' : [False],
     #'multi_head' : [False],
     #'regularizer' : ['mse'], # 'mse', 'fkl', 'rkl', 'w2'
+    #'hnet_out_masking': [0],
 
     ### Training options ###
     #'batch_size' : [32],

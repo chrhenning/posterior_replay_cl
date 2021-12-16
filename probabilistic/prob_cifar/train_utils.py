@@ -53,6 +53,7 @@ from probabilistic.prob_cifar import hpsearch_config_zenke_avb_pf as \
 from probabilistic.prob_cifar import hpsearch_config_zenke_bbb as hpzenkebbb
 from probabilistic.prob_cifar import hpsearch_config_resnet_bbb as hpresnetbbb
 from probabilistic.prob_cifar import hpsearch_config_resnet_ewc as hpresnetewc
+from probabilistic.prob_cifar import hpsearch_config_resnet_mt as hpresnetmt
 from probabilistic.prob_cifar import hpsearch_config_resnet_ssge as hpresnetssge
 from probabilistic.prob_cifar import hpsearch_config_resnet_ssge_pf as \
     hpresnetssgepf
@@ -71,8 +72,10 @@ from probabilistic.prob_mnist import hpsearch_config_perm_avb_pf as \
     hppermavbpf
 from probabilistic.prob_mnist import hpsearch_config_perm_bbb as hppermbbb
 from probabilistic.prob_mnist import hpsearch_config_perm_ewc as hppermewc
+from probabilistic.prob_mnist import hpsearch_config_perm_mt as hppermmt
 from probabilistic.prob_mnist import hpsearch_config_split_bbb as hpsplitbbb
 from probabilistic.prob_mnist import hpsearch_config_split_ewc as hpsplitewc
+from probabilistic.prob_mnist import hpsearch_config_split_mt as hpsplitmt
 from probabilistic.prob_mnist import hpsearch_config_split_ssge as \
     hpsplitssge
 from probabilistic.prob_mnist import hpsearch_config_split_ssge_pf as \
@@ -211,7 +214,7 @@ def generate_networks(config, shared, logger, data_handlers, device,
             in_shape = [n_x]
     else:
         assert len(in_shape) == 3
-        assert mnet_type in ['lenet', 'resnet', 'wrn', 'zenke']
+        assert mnet_type in ['lenet', 'resnet', 'wrn', 'iresnet', 'zenke']
 
 
     if data_handlers[0].classification:
@@ -227,8 +230,12 @@ def generate_networks(config, shared, logger, data_handlers, device,
                                   'a main network first.')
 
     logger.info('Creating main network ...')
+    mnet_kwargs = {}
+    if mnet_type == 'iresnet':
+        mnet_kwargs['cutout_mod'] = True
     mnet =  sutils.get_mnet_model(config, mnet_type, in_shape, out_shape,
-                                  device, no_weights=no_mnet_weights)
+                                  device, no_weights=no_mnet_weights,
+                                  **mnet_kwargs)
 
     # Initialize main net weights, if any.
     assert not hasattr(config, 'custom_network_init')
@@ -394,7 +401,9 @@ def setup_summary_dict(config, shared, experiment, mnet, hnet=None,
                           'perm_mnist_ssge', 'perm_mnist_ssge_pf',
                           'cifar_resnet_ssge', 'cifar_resnet_ssge_pf',
                           'gmm_ewc', 'split_mnist_ewc', 'perm_mnist_ewc',
-                          'cifar_resnet_ewc']
+                          'cifar_resnet_ewc',
+                          'gmm_mt', 'split_mnist_mt', 'perm_mnist_mt',
+                          'cifar_resnet_mt']
 
     summary = dict()
 
@@ -469,9 +478,17 @@ def setup_summary_dict(config, shared, experiment, mnet, hnet=None,
         summary_keys = hpsplitewc._SUMMARY_KEYWORDS
     elif experiment == 'perm_mnist_ewc':
         summary_keys = hppermewc._SUMMARY_KEYWORDS
-    else:
-        assert experiment == 'cifar_resnet_ewc'
+    elif experiment == 'cifar_resnet_ewc':
         summary_keys = hpresnetewc._SUMMARY_KEYWORDS
+    elif experiment == 'gmm_mt':
+        summary_keys = hpgmmmt._SUMMARY_KEYWORDS
+    elif experiment == 'split_mnist_mt':
+        summary_keys = hpsplitmt._SUMMARY_KEYWORDS
+    elif experiment == 'perm_mnist_mt':
+        summary_keys = hppermmt._SUMMARY_KEYWORDS
+    else:
+        assert experiment == 'cifar_resnet_mt'
+        summary_keys = hpresnetmt._SUMMARY_KEYWORDS
 
     for k in summary_keys:
         if k == 'acc_task_given' or \

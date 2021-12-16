@@ -254,8 +254,8 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
     zenke_main_args_kw['ddropout_rate'] = 0.25
     zenke_main_args_kw['show_net_act'] = False
     resnet_main_args_kw = dict(main_args_kw)
-    resnet_main_args_kw['allowed_nets'] = ['resnet', 'wrn', 'lenet', 'zenke',
-                                           'mlp']
+    resnet_main_args_kw['allowed_nets'] = ['resnet', 'wrn', 'iresnet', 'lenet',
+                                           'zenke', 'mlp']
     resnet_main_args_kw['dlenet_type'] = 'cifar'
     resnet_main_args_kw['show_batchnorm'] = False
     resnet_main_args_kw['show_no_batchnorm'] = True
@@ -305,7 +305,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
 
         special_train_options(train_agroup, show_soft_targets=False)
 
-        eval_args(eval_agroup)
+        eval_args(eval_agroup, show_supsup_task_inference=True)
         rta.mc_args(train_agroup, eval_agroup)
         rta.train_args(train_agroup, show_ll_dist_std=False,
                        show_local_reparam_trick=True, show_kl_scale=True,
@@ -317,7 +317,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
                                show_during_acc_criterion=True)
         train_args(train_agroup, show_calc_hnet_reg_targets_online=True,
                    show_hnet_reg_batch_size=True, show_num_kl_samples=True)
-        ind_posterior_args(train_agroup)
+        ind_posterior_args(train_agroup, show_experience_replay=True)
         prob_args(parser)
 
     ######################
@@ -341,7 +341,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
 
         special_train_options(train_agroup, show_soft_targets=False)
 
-        eval_args(eval_agroup)
+        eval_args(eval_agroup, show_supsup_task_inference=True)
         rta.mc_args(train_agroup, eval_agroup)
         rta.train_args(train_agroup, show_ll_dist_std=False,
                        show_local_reparam_trick=True, show_kl_scale=True,
@@ -353,7 +353,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
                                show_during_acc_criterion=True)
         train_args(train_agroup, show_calc_hnet_reg_targets_online=True,
                    show_hnet_reg_batch_size=True, show_num_kl_samples=True)
-        ind_posterior_args(train_agroup)
+        ind_posterior_args(train_agroup, show_experience_replay=True)
         prob_args(parser)
 
     ##########################
@@ -378,7 +378,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
 
         special_train_options(train_agroup, show_soft_targets=False)
 
-        eval_args(eval_agroup)
+        eval_args(eval_agroup, show_supsup_task_inference=True)
         rta.mc_args(train_agroup, eval_agroup)
         rta.train_args(train_agroup, show_ll_dist_std=False,
                        show_local_reparam_trick=True, show_kl_scale=True,
@@ -390,7 +390,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
                                show_during_acc_criterion=True)
         train_args(train_agroup, show_calc_hnet_reg_targets_online=True,
                    show_hnet_reg_batch_size=True, show_num_kl_samples=True)
-        ind_posterior_args(train_agroup)
+        ind_posterior_args(train_agroup, show_experience_replay=True)
         prob_args(parser)
 
         perm_args(parser)
@@ -403,6 +403,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
             datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
         cl_argroup = cli.cl_args(parser, **cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **zenke_train_args_kw)
         cli.main_net_args(parser, **zenke_main_args_kw)
         cli.hnet_args(parser, **hnet_args_kw)
@@ -416,7 +417,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
 
         special_train_options(train_agroup, show_soft_targets=False)
 
-        eval_args(eval_agroup)
+        eval_args(eval_agroup, show_supsup_task_inference=True)
         rta.mc_args(train_agroup, eval_agroup)
         rta.train_args(train_agroup, show_ll_dist_std=False,
                        show_local_reparam_trick=True, show_kl_scale=True,
@@ -440,6 +441,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
             datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
         cl_argroup = cli.cl_args(parser, **cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **resnet_train_args_kw)
         cli.main_net_args(parser, **resnet_main_args_kw)
         hnet_agroup = cli.hnet_args(parser, **hnet_args_kw_with_shmlp)
@@ -454,7 +456,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
 
         special_train_options(train_agroup, show_soft_targets=False)
 
-        eval_args(eval_agroup)
+        eval_args(eval_agroup, show_supsup_task_inference=True)
         rta.mc_args(train_agroup, eval_agroup)
         rta.train_args(train_agroup, show_ll_dist_std=False,
                        show_local_reparam_trick=True, show_kl_scale=True,
@@ -467,7 +469,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
 
         train_args(train_agroup, show_calc_hnet_reg_targets_online=True,
                    show_hnet_reg_batch_size=True, show_num_kl_samples=True)
-        ind_posterior_args(train_agroup)
+        ind_posterior_args(train_agroup, show_experience_replay=True)
         prob_args(parser)
 
     ################
@@ -761,6 +763,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
             datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
         cl_argroup = cli.cl_args(parser, **cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **zenke_train_args_kw)
         # Main network.
         cli.main_net_args(parser, **zenke_main_args_kw)
@@ -810,6 +813,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
         tmp_cifar_cl_args_kw = dict(cifar_cl_args_kw)
         tmp_cifar_cl_args_kw['show_beta'] = False
         cl_argroup = cli.cl_args(parser, **tmp_cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **zenke_train_args_kw)
         # Main network.
         cli.main_net_args(parser, **zenke_main_args_kw)
@@ -852,6 +856,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
             datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
         cl_argroup = cli.cl_args(parser, **cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **resnet_train_args_kw)
         # Main network.
         cli.main_net_args(parser, **resnet_main_args_kw)
@@ -902,6 +907,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
         tmp_cifar_cl_args_kw = dict(cifar_cl_args_kw)
         tmp_cifar_cl_args_kw['show_beta'] = False
         cl_argroup = cli.cl_args(parser, **tmp_cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **resnet_train_args_kw)
         # Main network.
         cli.main_net_args(parser, **resnet_main_args_kw)
@@ -1216,6 +1222,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
             datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
         cl_argroup = cli.cl_args(parser, **cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **resnet_train_args_kw)
         # Main network.
         cli.main_net_args(parser, **resnet_main_args_kw)
@@ -1264,6 +1271,7 @@ def parse_cmd_arguments(mode='split_mnist_bbb', default=False, argv=None):
         tmp_cifar_cl_args_kw = dict(cifar_cl_args_kw)
         tmp_cifar_cl_args_kw['show_beta'] = False
         cl_argroup = cli.cl_args(parser, **tmp_cifar_cl_args_kw)
+        pcta.extra_cl_args(cl_argroup)
         train_agroup = cli.train_args(parser, **resnet_train_args_kw)
         # Main network.
         cli.main_net_args(parser, **resnet_main_args_kw)
@@ -1402,8 +1410,8 @@ def perm_args(parser):
 
 def train_args(tgroup, show_calc_hnet_reg_targets_online=False,
                show_hnet_reg_batch_size=False, show_init_with_prev_emb=True,
-               show_use_prev_post_as_prior=True, show_num_kl_samples=False,
-               show_training_set_size=True):
+               show_use_prev_post_as_prior=True, show_kl_schedule=True,
+               show_num_kl_samples=False, show_training_set_size=True):
     """This is a helper function of the function :func:`parse_cmd_arguments` to
     add arguments to the training argument group specific to training
     probabilistic models.
@@ -1419,6 +1427,8 @@ def train_args(tgroup, show_calc_hnet_reg_targets_online=False,
             `init_with_prev_emb` should be provided.
         show_use_prev_post_as_prior (bool): Whether the option
             `use_prev_post_as_prior` should be provided.
+        show_kl_schedule (bool): Whether the option `show_kl_schedule` should be
+            provided.
         show_num_kl_samples (bool): Whether the option
             `num_kl_samples` should be provided.
         show_training_set_size (bool): Whether the option
@@ -1460,19 +1470,21 @@ def train_args(tgroup, show_calc_hnet_reg_targets_online=False,
         tgroup.add_argument('--use_prev_post_as_prior', action='store_true',
                             help='Use the previous posterior as prior when ' +
                                  'training a new task.')
-    tgroup.add_argument('--kl_schedule', type=int, metavar='N', default=0,
-                        help='If not "0" the KL term will undergo a burn-in ' +
-                             '(or annealing) phase, i.e., the influence of ' +
-                             'the prior-matching will be incrementally ' +
-                             'increased (or decreased) until it reaches its ' +
-                             'final strength of "1" (or "kl_scale"). This ' +
-                             'option determines the number of steps taken ' +
-                             'to linearly increase the KL strength from an ' +
-                             'initial value determined by option "kl_scale" ' +
-                             'to the final value "1". If the provided number ' +
-                             'is negative, then an annealing schedule from 1 ' +
-                             '"kl_scale" is followed. Default: %(default)s.')
-
+    if show_kl_schedule:
+        tgroup.add_argument('--kl_schedule', type=int, metavar='N', default=0,
+                            help='If not "0" the KL term will undergo a burn-' +
+                                 'in  (or annealing) phase, i.e., the ' +
+                                 'influence of the prior-matching will be ' +
+                                 'incrementally  increased (or decreased) ' +
+                                 'until it reaches its final strength of "1" ' +
+                                 '(or "kl_scale"). This option determines the' +
+                                 'number of steps taken to linearly increase ' +
+                                 'the KL strength from an initial value ' +
+                                 'determined by option "kl_scale"  to the ' +
+                                 'final value "1". If the provided number ' +
+                                 'is negative, then an annealing schedule ' +
+                                 'from 1 "kl_scale" is followed. ' +
+                                 'Default: %(default)s.')
     if show_num_kl_samples:
         tgroup.add_argument('--num_kl_samples', type=int, metavar='N',
                             default=1,
@@ -1494,7 +1506,8 @@ def train_args(tgroup, show_calc_hnet_reg_targets_online=False,
                                  'should increase). Default: %(default)s.')
 
 def ind_posterior_args(tgroup, show_distill_iter=True,
-                       show_final_coresets_finetune=True):
+                       show_final_coresets_finetune=True,
+                       show_experience_replay=False):
     """This is a helper function of the function :func:`parse_cmd_arguments` to
     add arguments to the training argument group that can be used to enforce
     a stronger independence of the posteriors learned sequentially (i.e., to
@@ -1508,6 +1521,8 @@ def ind_posterior_args(tgroup, show_distill_iter=True,
             `distill_iter` should be provided.
         show_final_coresets_finetune (bool): Whether the option
             `final_coresets_finetune` should be provided.
+        show_experience_replay (bool): Whether the option
+            `coresets_for_experience_replay` should be provided.
     """
     if show_distill_iter:
         tgroup.add_argument('--distill_iter', type=int, metavar='N', default=-1,
@@ -1535,6 +1550,30 @@ def ind_posterior_args(tgroup, show_distill_iter=True,
                         help='If "coreset_size" is set, then this option ' +
                              'determines the regularization strength of the ' +
                              'coreset regularizer. Default: %(default)s.')
+    tgroup.add_argument('--coreset_batch_size', type=int, default=-1,
+                        help='If "coreset_size" is set, then this option ' +
+                             'determines the size of the coreset batches. ' +
+                             'If the value is not provided, the same ' +
+                             'batch size as for the standard training set ' +
+                             'will be used. Default: %(default)s.')
+    if show_experience_replay:
+        tgroup.add_argument('--coresets_for_experience_replay',
+                            action='store_true',
+                            help='If this option is activated, the coresets ' +
+                                 'will be used for experience replay. This ' +
+                                 'option is only compatible with ' +
+                                 'deterministic runs. The options ' +
+                                 '"coreset_size", "per_task_coreset" and ' +
+                                 '"coreset_reg" are reused in this context.')
+        tgroup.add_argument('--fix_coreset_size', action='store_true',
+                            help='If this option is activated, the total ' +
+                                 'number of coreset samples used per ' +
+                                 'iteration (i.e. summed across tasks) will ' +
+                                 'not increase with the number of tasks. ' +
+                                 'Instead, "coreset_batch_size" is divided ' +
+                                 'by the number of tasks each time. ' +
+                                 'Only compatible with option ' +
+                                 '"coresets_for_experience_replay".')
     tgroup.add_argument('--past_and_future_coresets', action='store_true',
                         help='If this option is activated, the coreset ' +
                              'regularizer will operate on data from past and ' +
@@ -1627,13 +1666,15 @@ def prob_args(parser):
                              '"train_sample_size" will be used. ' +
                              'Default: %(default)s.')
 
-def eval_args(egroup):
+def eval_args(egroup, show_supsup_task_inference=False):
     """This is a helper function of the function :func:`parse_cmd_arguments` to
     add arguments to the evaluation argument group.
 
     Args:
         egroup: The argument group returned by function
             :func:`utils.cli_args.eval_args`.
+        show_supsup_task_inference (bool): Whether the option
+            `supsup_task_inference` should be provided.
     """
     egroup.add_argument('--full_test_interval', type=int, metavar='N',
                         default=-1,
@@ -1646,6 +1687,21 @@ def eval_args(egroup):
                              'performed. Note, full testing is always ' +
                              'performed after training the last task. ' +
                              'Default: %(default)s.')
+    if show_supsup_task_inference:
+        egroup.add_argument('--supsup_task_inference', action='store_true',
+                            help='If activated, gradient-based task ' +
+                                 'inference as in the SupSup method will be ' +
+                                 'computed alongside all other methods to ' +
+                                 'perform task-inference.')
+        egroup.add_argument('--supsup_grad_steps', type=int, default=1,
+                        help='Number of entropy gradient steps to be used ' +
+                             'for performing SupSup-like task inference. ' +
+                             'Default: %(default)s')
+        egroup.add_argument('--supsup_lr', type=float, default=1e-3,
+                        help='The scaling for the update of the alpha ' +
+                             'coefficients when doing SupSup task-inference. ' +
+                             'Only relevant if the number of gradient steps ' +
+                             'is larger than 1. Default: %(default)s')
 
 def hnet_args(agroup, prefix=None):
     """This is a helper function of function :func:`parse_cmd_arguments` to add
@@ -1723,7 +1779,30 @@ def check_invalid_args_general(config):
             config.per_task_coreset = True
         if config.coreset_size != -1 and not config.coreset_size > 0:
             raise ValueError('Invalid "coreset_size" value.')
-
+        if hasattr(config, 'coreset_batch_size') and \
+                config.coreset_batch_size == -1:
+            config.coreset_batch_size = config.batch_size
+        if hasattr(config, 'coresets_for_experience_replay') and \
+                    config.coresets_for_experience_replay:
+            if config.final_coresets_finetune:
+                raise ValueError('Option "coresets_for_experience_replay" ' +
+                                 'cannot be used in combination with ' +
+                                 '"final_coresets_finetune".')
+            if not config.per_task_coreset:
+                warnings.warn('Option "coresets_for_experience_replay" only ' +
+                              'implemented for "per_task_coreset". ' +
+                              'Setting this option to `True`.')
+                config.per_task_coreset = True
+            if not config.mnet_only:
+                raise ValueError('Option "coresets_for_experience_replay" ' +
+                                 'cannot be used in combination with ' +
+                                 'a hypernetwork. Please select ' +
+                                 '"mnet_only".')
+            if not config.mean_only:
+                raise ValueError('Option "coresets_for_experience_replay" ' +
+                                 'cannot be used in combination with ' +
+                                 'a stochastic main network. Please select ' +
+                                 '"mean_only".')
         if hasattr(config, 'final_coresets_finetune'):
             if config.coreset_size == -1 and config.final_coresets_finetune:
                 warnings.warn('Option "final_coresets_finetune" only has an ' +

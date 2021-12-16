@@ -393,6 +393,8 @@ def main_net_args(parser, allowed_nets=['fc'], dfc_arch='100,100',
                   dcmlp_in_cdim=100, dcmlp_out_cdim=10, dcmlp_cemb_dim=8,
                   dresnet_block_depth=5, dresnet_channel_sizes='16,16,32,64',
                   dwrn_block_depth=4, dwrn_widening_factor=10,
+                  diresnet_channel_sizes='64,64,128,256,512',
+                  diresnet_blocks_per_group='2,2,2,2',
                   dsrnn_rec_layers='10', dsrnn_pre_fc_layers='',
                   dsrnn_post_fc_layers='', dsrnn_rec_type='lstm',
                   show_net_act=True, dnet_act='relu', show_no_bias=False,
@@ -419,6 +421,11 @@ def main_net_args(parser, allowed_nets=['fc'], dfc_arch='100,100',
         - `wrn_block_depth`
         - `wrn_widening_factor`
         - `wrn_use_fc_bias`
+        - `iresnet_use_fc_bias`
+        - `iresnet_channel_sizes`
+        - `iresnet_blocks_per_group`
+        - `iresnet_bottleneck_blocks`
+        - `iresnet_projection_shortcut`
         - `srnn_rec_layers`
         - `srnn_pre_fc_layers`
         - `srnn_post_fc_layers`
@@ -445,6 +452,7 @@ def main_net_args(parser, allowed_nets=['fc'], dfc_arch='100,100',
             - ``lenet``: :class:`mnets.lenet.LeNet`
             - ``resnet``: :class:`mnets.resnet.ResNet`
             - ``wrn``: :class:`mnets.wide_resnet.WRN`
+            - ``iresnet``: :class:`mnets.resnet_imgnet.ResNetIN`
             - ``zenke``: :class:`mnets.zenkenet.ZenkeNet`
             - ``bio_conv_net``: :class:`mnets.bio_conv_net.BioConvNet`
             - ``chunked_mlp``: :class:`mnets.chunk_squeezer.ChunkSqueezer`
@@ -474,6 +482,10 @@ def main_net_args(parser, allowed_nets=['fc'], dfc_arch='100,100',
         dresnet_channel_sizes: Default value of option `resnet_channel_sizes`.
         dwrn_block_depth: Default value of option `wrn_block_depth`.
         dwrn_widening_factor: Default value of option `wrn_widening_factor`.
+        diresnet_channel_sizes: Default value of option
+            `iresnet_channel_sizes`.
+        diresnet_blocks_per_group: Default value of option
+            `iresnet_blocks_per_group`.
         dsrnn_rec_layers: Default value of option `srnn_rec_layers`.
         dsrnn_pre_fc_layers: Default value of option `srnn_pre_fc_layers`.
         dsrnn_post_fc_layers: Default value of option `srnn_post_fc_layers`.
@@ -509,7 +521,7 @@ def main_net_args(parser, allowed_nets=['fc'], dfc_arch='100,100',
     # TODO Delete 'fc' from list.
     for nt in allowed_nets:
         assert nt in ['fc', 'mlp', 'lenet', 'resnet', 'zenke', 'bio_conv_net',
-                      'chunked_mlp', 'simple_rnn', 'wrn']
+                      'chunked_mlp', 'simple_rnn', 'wrn', 'iresnet']
 
     assert not show_batchnorm or not show_no_batchnorm
 
@@ -636,6 +648,37 @@ def main_net_args(parser, allowed_nets=['fc'], dfc_arch='100,100',
                                  'whenever "%sno_bias" is active, ' +
                                  'this will specifcy that a bias has to be ' +
                                  'used in the fully connected layers.')
+
+    if 'iresnet' in allowed_nets:
+        agroup.add_argument('--%siresnet_use_fc_bias' % p, action='store_true',
+                            help='If using a "iresnet" %s network, ' % n +
+                                 'whenever "%sno_bias" is active, ' +
+                                 'this will specifcy that a bias has to be ' +
+                                 'used in the fully connected layers.')
+        agroup.add_argument('--%siresnet_channel_sizes' % p, type=str,
+                            default=diresnet_channel_sizes,
+                            help='If using a "iresnet" %s network, ' %n+
+                                 'this will specify the number of feature ' +
+                                 'maps. It has to be a list of 5 integers! ' +
+                                 'Default: %(default)s.')
+        agroup.add_argument('--%siresnet_blocks_per_group' % p, type=str,
+                            default=diresnet_blocks_per_group,
+                            help='If using a "iresnet" %s network, ' %n+
+                                 'this will specify the number of blocks ' +
+                                 'per group of convolutional layers. It has ' +
+                                 'to be a list of 4 integers! ' +
+                                 'Default: %(default)s.')
+        agroup.add_argument('--%siresnet_bottleneck_blocks' % p,
+                            action='store_true',
+                            help='If using a "iresnet" %s network, ' % n +
+                                 'this option decides whether normal blocks ' +
+                                 'or bottleneck blocks are used.')
+        agroup.add_argument('--%siresnet_projection_shortcut' % p,
+                            action='store_true',
+                            help='If using a "iresnet" %s network, ' % n +
+                                 'this option decides whether skip ' +
+                                 'connections are padded/subsampled or ' +
+                                 'realized via 1x1 conv projections.')
 
     if 'simple_rnn' in allowed_nets:
         agroup.add_argument('--%ssrnn_rec_layers' % p, type=str,

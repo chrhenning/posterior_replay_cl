@@ -34,7 +34,7 @@ more information on this files content.
 
 grid = {
     ### Continual learning options ###
-    #'train_from_scratch' : [False]
+    #'train_from_scratch' : [False],
     'multi_head' : [False],
 
     ### Training options ###

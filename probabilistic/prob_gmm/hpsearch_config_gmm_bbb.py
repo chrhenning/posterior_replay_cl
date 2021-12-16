@@ -56,6 +56,7 @@ grid = {
     #'cl_scenario' : [1], # 1, 2 or 3
     #'split_head_cl3' : [False],
     #'regularizer' : ['mse'], # 'mse', 'fkl', 'rkl', 'w2'
+    #'hnet_out_masking': [0],
 
     ### Training options ###
     #'batch_size' : [32],
@@ -89,6 +90,9 @@ grid = {
     #'coreset_size': [-1],
     #'per_task_coreset': [False],
     #'coreset_reg': [1.],
+    #'coreset_batch_size': [-1],
+    #'coresets_for_experience_replay': [False],
+    #'fix_coreset_size': [False],
     #'past_and_future_coresets': [False],
     #'final_coresets_finetune': [False],
     #'final_coresets_single_task': [False],

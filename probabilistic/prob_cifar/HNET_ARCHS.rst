@@ -222,3 +222,65 @@ Example call:
 .. code-block:: console
 
     $ python3 train_resnet_bbb.py --num_tasks=5 --num_classes_per_task=2 --net_type=wrn --wrn_block_depth=4 --wrn_widening_factor=10 --wrn_use_fc_bias --no_bias --hnet_type=chunked_hmlp --cond_emb_size=32 --chunk_emb_size=32 --hmlp_arch='50,50,50,50' --chmlp_chunk_size=1000000
+
+The Structured HNET ``--imp_hnet_type=structured_hmlp`` uses 18 internal hypernetworks (16 when using ``--shmlp_gcd_chunking``). Here are possible architecture choices:
+
+  - ``--hnet_type=structured_hmlp --cond_emb_size=8 --chunk_emb_size="0,0,2,4,4,0,0,0,0,0,0,2,4,4,0,0,0,0" --hmlp_arch=""``
+  - ``--hnet_type=structured_hmlp --cond_emb_size=32 --chunk_emb_size="0,0,32,32,32,0,0,0,0,0,0,32,32,32,0,0,0,0" --hmlp_arch="32,8;32,8;64,32,10;64,32,12;64,32,12;32,8;32,8;32,8;32,8;32,8;32,8;64,32,10;64,32,12;64,32,12;32,8;32,8;32,8;32,8"``
+  - ``--hnet_type=structured_hmlp --shmlp_gcd_chunking --cond_emb_size=5 --chunk_emb_size="0,16,8,8,0,0,0,0,0,16,8,8,0,0,0,0" --hmlp_arch=""``
+  - ``--hnet_type=structured_hmlp --shmlp_gcd_chunking --cond_emb_size=32 --chunk_emb_size="0,32,32,32,0,0,0,0,0,32,32,32,0,0,0,0" --hmlp_arch="32,5;64,32,21;64,32,13;64,32,13;32,5;32,5;32,5;32,5;32,5;64,32,21;64,32,13;64,32,13;32,5;32,5;32,5;32,5"``
+
+SplitCIFAR-100
+-----------------
+
+These architectures are for the task setup ``--num_tasks=10 --num_classes_per_task=10 --skip_tasks=1``.
+
+Resnet-18
+^^^^^^^^^
+
+The resnet architecture ``--net_type=iresnet --iresnet_use_fc_bias --no_bias --iresnet_projection_shortcut`` with 11,220,032 weights.
+
+  - ``''`` -> 150000
+  - ``'500,500'`` -> 20000
+  - ``'100,100,100,100'`` -> 100000
+  - ``'250,500,1000'`` -> 10000
+
+Example call:
+
+.. code-block:: console
+
+    $ python3 train_resnet_ssge.py --num_tasks=10 --num_classes_per_task=10 --skip_tasks=1 --net_type=iresnet --iresnet_use_fc_bias --no_bias --iresnet_projection_shortcut --latent_dim=32 --imp_chunk_emb_size=32 --hh_hnet_type=chunked_hmlp --hh_cond_emb_size=32 --hh_chunk_emb_size=32 --hh_hmlp_arch='' --hh_chmlp_chunk_size=150000 --imp_hmlp_arch='250,500,1000' --imp_chmlp_chunk_size=10000
+
+Gaussian Resnet-18
+^^^^^^^^^^^^^^^^^^
+
+The resnet architecture ``--net_type=iresnet --iresnet_use_fc_bias --no_bias --iresnet_projection_shortcut`` with 22,440,064 weights.
+
+  - ``''`` -> 300000
+  - ``'500,500'`` -> 40000
+  - ``'100,100,100,100'`` -> 200000
+  - ``'250,500,1000'`` -> 20000
+
+.. code-block:: console
+
+    $ python3 train_resnet_bbb.py --num_tasks=10 --num_classes_per_task=10 --skip_tasks=1 --net_type=iresnet --iresnet_use_fc_bias --no_bias --iresnet_projection_shortcut --hnet_type=chunked_hmlp --cond_emb_size=32 --chunk_emb_size=32 --hmlp_arch='100,100,100,100' --chmlp_chunk_size=200000
+
+Resnet-32
+^^^^^^^^^
+
+The default resnet architecture ``--net_type=resnet --resnet_block_depth=5 --resnet_channel_sizes="16,16,32,64"`` with 471,140 weights.
+
+  - ``''`` -> 7000
+  - ``'100,100'`` -> 4000
+  - ``'10,10,10,10'`` -> 40000
+  - ``'125,250,500'`` -> 500
+
+Gaussian Resnet-32
+^^^^^^^^^^^^^^^^^^
+
+The default resnet architecture ``--net_type=resnet --resnet_block_depth=5 --resnet_channel_sizes="16,16,32,64"`` with 942,280 weights.
+
+  - ``''`` -> 14000
+  - ``'100,100'`` -> 9000
+  - ``'10,10,10,10'`` -> 80000
+  - ``'125,250,500'`` -> 1450

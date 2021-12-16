@@ -62,6 +62,7 @@ grid = {
     #'num_tasks' : [5],
     #'num_classes_per_task': [2],
     #'regularizer' : ['mse'], # 'mse', 'fkl', 'rkl', 'w2'
+    #'hnet_out_masking': [0],
 
     ### Training options ###
     #'batch_size' : [128], # RELATED WORK - 128
@@ -95,6 +96,9 @@ grid = {
     #'coreset_size': [-1],
     #'per_task_coreset': [False],
     #'coreset_reg': [1.],
+    #'coreset_batch_size': [-1],
+    #'coresets_for_experience_replay': [False],
+    #'fix_coreset_size': [False],
     #'past_and_future_coresets': [False],
     #'final_coresets_finetune': [False],
     #'final_coresets_single_task': [False],

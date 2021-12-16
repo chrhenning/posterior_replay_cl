@@ -185,6 +185,22 @@ def ssge_args(parser, dssge_sample_size=10, drbf_kernel_width=1.,
                              'approximation of the score function when using ' +
                              'SSGE. Default: %(default)s.')
 
+def extra_cl_args(agroup):
+    """This is a helper function of the function
+    :func:`probabilistic.prob_mnist.train_args.parse_cmd_arguments` to add
+    arguments to the CL argument group.
+
+    Args:
+        agroup: The argument group returned by method
+            :func:`utils.cli_args.cl_args`.
+    """
+    agroup.add_argument('--skip_tasks', type=int, default=0,
+                        help='The number of tasks to be skipped. E.g., if ' +
+                             '"num_classes_per_task=10" and 1 task should be ' +
+                             'skipped, then CIFAR-10 will be skipped. Note, ' +
+                             'this option will no affect "num_tasks". ' +
+                             'Default: %(default)s.')
+
 if __name__ == '__main__':
     pass
 

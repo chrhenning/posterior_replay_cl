@@ -333,25 +333,16 @@ def distill_net(task_id, data, mnet, hnet, hhnet, device, config, shared,
                         batch_size=config.hnet_reg_batch_size)
 
             else:
-                assert config.hnet_reg_batch_size == -1
-
-                # FIXME should be bundled in a separate function inside
-                # `prob_utils` (allowing the same flexibility that
-                # `hreg.calc_fix_target_reg` allows).
-                target_mean = None
-                target_logvar = None
-                for t in range(task_id):
-                    if prev_hnet_theta is None:
-                        target_mean = target_means[t]
-                        target_logvar = target_logvars[t]
-                    loss_reg += train_utils.calc_gauss_reg(config, t, mnet,
-                        hnet, target_mean=target_mean,
-                        target_logvar=target_logvar,
-                        prev_theta=prev_hnet_theta,
-                        prev_task_embs=prev_task_embs)
-
-                loss_reg /= task_id
-
+                task_target_means = None
+                task_target_logvars = None
+                if prev_hnet_theta is None:
+                    task_target_means = target_means
+                    task_target_logvars = target_logvars
+                loss_reg =  train_utils.calc_gauss_reg_all_tasks(config,
+                    task_id, mnet, hnet, target_means=task_target_means,
+                    target_logvars=task_target_logvars,
+                    prev_theta=prev_hnet_theta, prev_task_embs=prev_task_embs,
+                    batch_size=config.hnet_reg_batch_size)
 
         loss = dis_loss + config.beta * loss_reg
 
@@ -421,6 +412,13 @@ def train(task_id, data, mnet, hnet, device, config, shared, logger, writer):
     # task.
     allowed_outputs = train_utils.out_units_of_task(config, data, task_id,
                                                     task_id+1)
+
+    prev_mnet_params = None
+    if config.coreset_size != -1 and \
+            hasattr(config, 'coresets_for_experience_replay') and \
+            config.coresets_for_experience_replay and task_id > 0:
+        prev_mnet_params = [p.detach().clone() \
+                               for p in mnet.internal_params]
 
     # It might be that tasks are very similar and we can transfer knowledge
     # from the previous solution.
@@ -667,22 +665,16 @@ def train(task_id, data, mnet, hnet, device, config, shared, logger, writer):
                     batch_size=config.hnet_reg_batch_size)
 
             else:
-                assert config.hnet_reg_batch_size == -1
-
-                # FIXME should be bundled in a separate function inside
-                # `prob_utils` (allowing the same flexibility that
-                # `hreg.calc_fix_target_reg` allows).
-                target_mean = None
-                target_logvar = None
-                for t in range(task_id):
-                    if prev_hnet_theta is None:
-                        target_mean = target_means[t]
-                        target_logvar = target_logvars[t]
-                    loss_reg += train_utils.calc_gauss_reg(config, t, mnet,
-                        hnet, target_mean=target_mean,
-                        target_logvar=target_logvar,
-                        prev_theta=prev_hnet_theta,
-                        prev_task_embs=prev_task_embs)
+                task_target_means = None
+                task_target_logvars = None
+                if prev_hnet_theta is None:
+                    task_target_means = target_means
+                    task_target_logvars = target_logvars
+                loss_reg =  train_utils.calc_gauss_reg_all_tasks(config,
+                    task_id, mnet, hnet, target_means=task_target_means,
+                    target_logvars=task_target_logvars,
+                    prev_theta=prev_hnet_theta, prev_task_embs=prev_task_embs,
+                    batch_size=config.hnet_reg_batch_size)
 
                 loss_reg /= task_id
 
@@ -694,11 +686,11 @@ def train(task_id, data, mnet, hnet, device, config, shared, logger, writer):
             if config.past_and_future_coresets:
                 cs_all = shared.coreset[shared.task_ident != task_id]
                 batch_inds = np.random.randint(0, cs_all.shape[0],
-                                               config.batch_size)
+                                               config.coreset_batch_size)
                 coreset = cs_all[batch_inds]
             else:
                 batch_inds = np.random.randint(0, shared.coreset.shape[0],
-                                               config.batch_size)
+                                               config.coreset_batch_size)
                 coreset = shared.coreset[batch_inds]
             #cs_task_ids = shared.task_ident[batch_inds]
             #cs_tasks = np.unique(cs_task_ids)
@@ -706,7 +698,7 @@ def train(task_id, data, mnet, hnet, device, config, shared, logger, writer):
             # Construct maximum entropy targets for coreset samples.
             target_size = len(allowed_outputs) if config.cl_scenario != 2 \
                     else data.num_classes
-            cs_targets = torch.ones(config.batch_size, target_size). \
+            cs_targets = torch.ones(config.coreset_batch_size, target_size). \
                 to(device) / target_size
 
             for j in range(config.train_sample_size):
@@ -728,11 +720,77 @@ def train(task_id, data, mnet, hnet, device, config, shared, logger, writer):
 
             cs_reg /= config.train_sample_size
 
+        ### Compute experience replay regularizer.
+        er_reg = 0
+        if config.coreset_size != -1 and \
+                hasattr(config, 'coresets_for_experience_replay') and \
+                config.coresets_for_experience_replay and task_id > 0:
+            assert hasattr(shared, 'coreset')
+
+            # If the overall coreset size (summer over all tasks) should stay
+            # constant, we need to divide the coreset batch size by the
+            # number of tasks.
+            if hasattr(config, 'fix_coreset_size') and config.fix_coreset_size:
+                sample_size = [config.coreset_batch_size // task_id] * task_id
+                sample_size = [s + (1 if i < config.coreset_batch_size %task_id\
+                               else 0) for i, s in enumerate(sample_size)]
+                coreset_samples_per_task = np.random.permutation(sample_size)
+
+            # Iterate over coresets of all past tasks.
+            for prev_task_id in range(task_id):
+                coreset_batch_size = config.coreset_batch_size
+                if hasattr(config, 'fix_coreset_size') and \
+                        config.fix_coreset_size:
+                    coreset_batch_size = coreset_samples_per_task[prev_task_id]
+                cs_curr_task = shared.coreset[shared.task_ident == prev_task_id]
+                batch_inds = np.random.randint(0, cs_curr_task.shape[0],
+                                               coreset_batch_size)
+                coreset = cs_curr_task[batch_inds]
+
+                # Get the targets from the previous model.
+                with torch.no_grad():
+                    mnet_kwargs_prev = train_utils.mnet_kwargs(config, \
+                            prev_task_id, mnet)
+                    er_targets = mnet.forward(coreset,
+                        weights=prev_mnet_params, **mnet_kwargs_prev).to(device)
+
+                for j in range(config.train_sample_size):
+                    if config.mean_only:
+                        er_preds = mnet.forward(coreset, weights=w_mean,
+                                                **mnet_kwargs)
+                    else:
+                        raise NotImplementedError()
+
+                    target_mapping = None
+                    if allowed_outputs is not None:
+                        # Select allowed outputs for targets.
+                        allowed_outputs_prev = train_utils.out_units_of_task(\
+                                                                config, data,
+                                                                prev_task_id,
+                                                                task_id)
+                        er_targets = er_targets[:, allowed_outputs_prev]
+
+                        # if growing head
+                        if len(allowed_outputs_prev) != len(allowed_outputs):
+                            target_mapping = list(allowed_outputs_prev)
+
+                        # Select allowed outputs for predictions.
+                        er_preds = er_preds[:, allowed_outputs]
+
+                    er_reg += Classifier.knowledge_distillation_loss(er_preds,
+                                     er_targets, target_mapping=target_mapping,
+                                     device=device)
+
+            if hasattr(config, 'fix_coreset_size') and config.fix_coreset_size:
+                er_reg /= (config.train_sample_size)
+            else:
+                er_reg /= (config.train_sample_size * task_id)
+
         kl_scale = train_utils.calc_kl_scale(config, num_train_iter, i, logger)
         assert perform_pm or kl_scale == 0
 
         loss = kl_scale * loss_kl + loss_nll + config.beta * loss_reg + \
-            config.coreset_reg * cs_reg
+            config.coreset_reg * cs_reg + config.coreset_reg * er_reg
 
         loss.backward()
         if config.clip_grad_value != -1:
@@ -759,6 +817,7 @@ def train(task_id, data, mnet, hnet, device, config, shared, logger, writer):
             writer.add_scalar('train/task_%d/regularizer' % task_id, loss_reg,
                               i)
             writer.add_scalar('train/task_%d/coreset_reg' % task_id, cs_reg, i)
+            writer.add_scalar('train/task_%d/er_reg' % task_id, er_reg, i)
             writer.add_scalar('train/task_%d/loss' % task_id, loss, i)
             writer.add_scalar('train/task_%d/accuracy' % task_id,
                               mean_train_acc, i)
@@ -776,7 +835,9 @@ def train(task_id, data, mnet, hnet, device, config, shared, logger, writer):
 
     ### Update or setup the coresets (if requested by user).
     if config.coreset_size != -1 and not (config.past_and_future_coresets or \
-            config.final_coresets_finetune):
+            config.final_coresets_finetune or \
+            (hasattr(config, 'coresets_for_experience_replay') and \
+             config.coresets_for_experience_replay)):
         train_utils.update_coreset(config, shared, task_id, data, mnet, hnet,
                                    device, logger, allowed_outputs)
 
@@ -925,11 +986,15 @@ def train_multitask_coresets(dhandlers, mnet, hnet, device, config, shared,
         epochs = config.final_coresets_epochs
     num_train_samples = shared.coreset.shape[0]
     num_train_iter, iter_per_epoch = sutils.calc_train_iter( \
-        num_train_samples, config.batch_size, num_iter=n_iter, epochs=epochs)
+        num_train_samples, config.coreset_batch_size, num_iter=n_iter,
+        epochs=epochs)
 
     for i in range(num_train_iter):
         if i % 100 == 0:
             logger.debug('Fine-tuning iteration: %d.' % i)
+
+        kl_scale = train_utils.calc_kl_scale(config, num_train_iter, i, logger,
+                                             final_finetune=True)
 
         ### Train theta and task embedding.
         optimizer.zero_grad()
@@ -955,12 +1020,13 @@ def train_multitask_coresets(dhandlers, mnet, hnet, device, config, shared,
             w_std, w_logvar = putils.decode_diag_gauss(w_rho, \
                 logvar_enc=mnet.logvar_encoding, return_logvar=True)
 
-            if i > 0:
+            loss_kl_curr_task = 0
+            if i > 0: # Note, the KL is zero in the first iteration.
                 ### Prior-matching loss.
                 if not config.radial_bnn:
-                    loss_kl += putils.kl_diag_gaussians(w_mean, w_logvar,
-                                                        priors_mean[task_id],
-                                                        priors_logvar[task_id])
+                    loss_kl_curr_task = putils.kl_diag_gaussians(w_mean,
+                        w_logvar, priors_mean[task_id], priors_logvar[task_id])
+                    loss_kl += loss_kl_curr_task
                 else:
                     # We would need to be able to estimate the KL between two
                     # Radial distributions.
@@ -973,21 +1039,21 @@ def train_multitask_coresets(dhandlers, mnet, hnet, device, config, shared,
 
                 curr_task_inds = np.where(shared.task_ident == task_id)[0]
                 curr_task_inds_tmp = curr_task_inds.copy()
-                while curr_task_inds.size < config.batch_size:
+                while curr_task_inds.size < config.coreset_batch_size:
                     curr_task_inds = np.concatenate((curr_task_inds,
                                                      curr_task_inds_tmp))
                 np.random.shuffle(curr_task_inds)
-                batch_inds = curr_task_inds[:config.batch_size]
+                batch_inds = curr_task_inds[:config.coreset_batch_size]
             else:
                 num_ft_samples = shared.task_ident.size
 
                 if config.final_coresets_balance == -1:
                     batch_inds = np.random.randint(0, shared.coreset.shape[0],
-                                                   config.batch_size)
+                                                   config.coreset_batch_size)
                 else:
                     p = config.final_coresets_balance
-                    n_curr = int(np.ceil(p * config.batch_size))
-                    n_other = config.batch_size - n_curr
+                    n_curr = int(np.ceil(p * config.coreset_batch_size))
+                    n_other = config.coreset_batch_size - n_curr
 
                     curr_task_inds = np.where(shared.task_ident == task_id)[0]
                     # Note, we assume that there is an equal amount of samples
@@ -1056,11 +1122,13 @@ def train_multitask_coresets(dhandlers, mnet, hnet, device, config, shared,
             loss_nll_curr_task *= num_ft_samples / config.train_sample_size
             loss_nll += loss_nll_curr_task
 
-        kl_scale = train_utils.calc_kl_scale(config, num_train_iter, i, logger,
-            final_finetune=True)
-        loss = kl_scale * loss_kl + loss_nll
+            loss_curr_task = kl_scale * loss_kl_curr_task + loss_nll_curr_task
+            loss_curr_task.backward()
 
-        loss.backward()
+        loss = kl_scale * loss_kl + loss_nll
+        # Note, we call `backward` above inside the loop, and accumulate
+        # gradients, to avoid memory issues.
+        #loss.backward()
         if config.clip_grad_value != -1:
             torch.nn.utils.clip_grad_value_(optimizer.param_groups[0]['params'],
                                             config.clip_grad_value)
@@ -1153,7 +1221,9 @@ def run(config, experiment='split_bbb'):
 
     # Setup coresets iff regularization on all tasks is allowed.
     if config.coreset_size != -1 and (config.past_and_future_coresets or \
-            config.final_coresets_finetune):
+            config.final_coresets_finetune or \
+            (hasattr(config, 'coresets_for_experience_replay') and \
+             config.coresets_for_experience_replay)):
         for i in range(config.num_tasks):
             train_utils.update_coreset(config, shared, i, dhandlers[i], None,
                                        None, device, logger, None)

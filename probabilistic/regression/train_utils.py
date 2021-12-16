@@ -40,6 +40,7 @@ from warnings import warn
 from data.special.regression1d_data import ToyRegression
 from mnets.mnet_interface import MainNetInterface
 from hnets import hnet_helpers
+from hnets.hnet_perturbation_wrapper import HPerturbWrapper
 from hnets.structured_hmlp_examples import resnet_chunking, wrn_chunking
 from probabilistic import prob_utils as putils
 from probabilistic import GaussianBNNWrapper
@@ -266,8 +267,12 @@ def generate_gauss_networks(config, logger, data_handlers, device,
             hidden_layers=mlp_arch, activation_fn=net_act,
             use_bias=not config.no_bias, no_weights=no_mnet_weights).to(device)
     else:
+        mnet_kwargs = {}
+        if net_type == 'iresnet':
+            mnet_kwargs['cutout_mod'] = True
         mnet =  sutils.get_mnet_model(config, net_type, in_shape, out_shape,
-                                      device, no_weights=no_mnet_weights)
+                                      device, no_weights=no_mnet_weights,
+                                      **mnet_kwargs)
 
     # Initiaize main net weights, if any.
     assert(not hasattr(config, 'custom_network_init'))
@@ -326,8 +331,57 @@ def generate_gauss_networks(config, logger, data_handlers, device,
             len(mnet.param_shapes) == len(mnet.hyper_shapes_learned)
 
         hnet = sutils.get_hypernet(config, device, config.hnet_type,
-            mnet.param_shapes, num_tasks,shmlp_chunk_shapes=chunk_shapes,
+            mnet.param_shapes, num_tasks, shmlp_chunk_shapes=chunk_shapes,
             shmlp_num_per_chunk=num_per_chunk, shmlp_assembly_fct=assembly_fct)
+
+        if config.hnet_out_masking != 0:
+            logger.info('Generating binary masks to select task-specific ' +
+                        'subnetworks from hypernetwork.')
+            # Add a wrapper around the hypernpetwork that masks its outputs
+            # using a task-specific binary mask layer per layer. Note that
+            # output weights are not masked.
+
+            # Ensure that masks are kind of deterministic for a given hyper-
+            # param config/task.
+            mask_gen = torch.Generator()
+            mask_gen = mask_gen.manual_seed(42)
+
+            # Generate a random binary mask per task.
+            assert len(mnet.param_shapes) == len(hnet.target_shapes)
+            hnet_out_masks = []
+            for tid in range(config.num_tasks):
+                hnet_out_mask = []
+                for layer_shapes, is_output in zip(mnet.param_shapes, \
+                        mnet.get_output_weight_mask()):
+                    layer_mask = torch.ones(layer_shapes)
+                    if is_output is None:
+                        # We only mask weights that are not output weights.
+                        layer_mask = torch.rand(layer_shapes,
+                                                generator=mask_gen)
+                        layer_mask[layer_mask > config.hnet_out_masking] = 1
+                        layer_mask[layer_mask <= config.hnet_out_masking] = 0
+                    hnet_out_mask.append(layer_mask)
+                hnet_out_masks.append(hnet_out_mask)
+
+            hnet_out_masks = hnet.convert_out_format(hnet_out_masks,
+                'sequential', 'flattened')
+
+            def hnet_out_masking_func(hnet_out_int, uncond_input=None,
+                                      cond_input=None, cond_id=None):
+                assert isinstance(cond_id, (int, list))
+                if isinstance(cond_id, int):
+                    cond_id = [cond_id]
+
+                hnet_out_int[hnet_out_masks[cond_id, :]==0] = 0
+                return hnet_out_int
+
+            def hnet_inp_handler(uncond_input=None, cond_input=None,
+                                 cond_id=None): # Identity
+                return uncond_input, cond_input, cond_id
+
+            hnet = HPerturbWrapper(hnet, output_handler=hnet_out_masking_func,
+                                   input_handler=hnet_inp_handler)
+
         #if config.hnet_type == 'structured_hmlp':
         #    print(num_per_chunk)
         #    for ii, int_hnet in enumerate(hnet.internal_hnets):
@@ -961,7 +1015,7 @@ def setup_summary_dict(config, shared, experiment, num_tasks, mnet, hnet=None,
         hhnet (optional): Hyper-hypernetwork.
         dnet (optional): Discriminator.
     """
-    assert(experiment in ['bbb', 'avb', 'ssge', 'ewc'])
+    assert(experiment in ['bbb', 'avb', 'ssge', 'ewc', 'mt'])
 
     summary = dict()
 
@@ -989,6 +1043,8 @@ def setup_summary_dict(config, shared, experiment, num_tasks, mnet, hnet=None,
         summary_keys = hpbbb._SUMMARY_KEYWORDS
     elif experiment == 'ewc':
         summary_keys = hpewc._SUMMARY_KEYWORDS
+    elif experiment == 'mt':
+        summary_keys = hpmt._SUMMARY_KEYWORDS
     elif experiment == 'avb':
         summary_keys = hpavb._SUMMARY_KEYWORDS
     else:

@@ -37,7 +37,7 @@ from probabilistic.regression import hpsearch_config_bbb as hpbbb
 grid = {
     ### Continual learning options ###
     'beta' : [0.005],
-    #'train_from_scratch' : [False]
+    #'train_from_scratch' : [False],
     #'multi_head' : [False],
 
     ### Training options ###

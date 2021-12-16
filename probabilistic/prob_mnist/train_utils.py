@@ -49,6 +49,7 @@ from probabilistic.prob_mnist import hpsearch_config_perm_bbb as hppermbbb
 from probabilistic.prob_mnist import hpsearch_config_split_avb as hpsplitavb
 from probabilistic.prob_mnist import hpsearch_config_split_bbb as hpsplitbbb
 from probabilistic.prob_mnist import hpsearch_config_split_ewc as hpsplitewc
+from probabilistic.prob_mnist import hpsearch_config_split_mt as hpsplitmt
 from probabilistic.prob_mnist import hpsearch_config_split_ssge as hpsplitssge
 from probabilistic.regression import train_utils as rtu
 from utils import misc
@@ -84,7 +85,9 @@ def load_datasets(config, logger, experiment, writer,
                           'perm_mnist_ssge', 'perm_mnist_ssge_pf',
                           'cifar_resnet_ssge', 'cifar_resnet_ssge_pf',
                           'gmm_ewc', 'split_mnist_ewc', 'perm_mnist_ewc',
-                          'cifar_resnet_ewc']
+                          'cifar_resnet_ewc',
+                          'gmm_mt', 'split_mnist_mt', 'perm_mnist_mt',
+                          'cifar_resnet_mt']
 
     if experiment.startswith('gmm'):
         logger.info('Running Gaussian-Mixture-Model experiment.')
@@ -128,13 +131,15 @@ def load_datasets(config, logger, experiment, writer,
         # NOTE When using `PermutedMNISTList` rather than `PermutedMNIST`,
         # we have to ensure a proper use of the data handlers ourselves. See
         # the corresponding documentation.
-        dhandlers = PermutedMNISTList(permutations, data_dir,
-            padding=config.padding, trgt_padding=config.trgt_padding,
-            show_perm_change_msg=False,
-            validation_size=config.val_set_size)
-        #dhandlers = [PermutedMNIST(config.data_dir, permutation=p,
-        #    padding=config.padding, trgt_padding=config.trgt_padding,
-        #    validation_size=config.val_set_size) for p in permutations]
+        if not experiment.endswith('mt'):
+            dhandlers = PermutedMNISTList(permutations, data_dir,
+                padding=config.padding, trgt_padding=config.trgt_padding,
+                show_perm_change_msg=False,
+                validation_size=config.val_set_size)
+        else: # Multitask training. Parallel access to all data handlers needed!
+            dhandlers = [PermutedMNIST(data_dir, permutation=p,
+                padding=config.padding, trgt_padding=config.trgt_padding,
+                validation_size=config.val_set_size) for p in permutations]
 
     else:
         raise ValueError('Experiment type "%s" unknown.' % experiment)
@@ -175,6 +180,15 @@ def load_cifar(config, shared, logger, data_dir='../datasets'):
         logger.info('Data augmentation will be used.')
 
     logger.info('Loading CIFAR datasets ...')
+    ntasks_to_generate = config.num_tasks
+    if hasattr(config, 'skip_tasks'):
+        skip_tasks = config.skip_tasks
+    else:
+        skip_tasks = 0
+    if skip_tasks > 0:
+        ntasks_to_generate += skip_tasks
+        logger.info('Generating %d tasks, but the first %d tasks will be ' \
+                    % (ntasks_to_generate, skip_tasks) + 'omitted.')
     if hasattr(config, 'num_classes_per_task'):
         num_classes_per_task = config.num_classes_per_task
     else:
@@ -184,9 +198,10 @@ def load_cifar(config, shared, logger, data_dir='../datasets'):
     else:
         validation_size = 0
     dhandlers = get_split_cifar_handlers(data_dir, use_one_hot=True,
-        use_data_augmentation=augment_data, num_tasks=config.num_tasks,
+        use_data_augmentation=augment_data, num_tasks=ntasks_to_generate,
         num_classes_per_task=num_classes_per_task,
         validation_size=validation_size)
+    dhandlers = dhandlers[skip_tasks:]
     assert(len(dhandlers) == config.num_tasks)
 
     logger.info('Loaded %d CIFAR task(s) into memory.' % config.num_tasks)
@@ -411,7 +426,7 @@ def generate_gauss_networks(config, logger, data_handlers, device, experiment,
             in_shape = [n_x]
     else:
         assert len(in_shape) == 3
-        assert net_type in ['lenet', 'resnet', 'wrn', 'zenke']
+        assert net_type in ['lenet', 'resnet', 'wrn', 'iresnet', 'zenke']
 
     out_shape = [data_handlers[0].num_classes * num_heads]
 
@@ -428,7 +443,8 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
                 return_pred_labels=False, return_labels=False,
                 return_samples=False, deterministic_sampling=False,
                 disable_lrt=False, in_samples=None, out_samples=None,
-                num_w_samples=None, w_samples=None, normal_post=None):
+                num_w_samples=None, w_samples=None, normal_post=None,
+                alphas=None):
     """Compute the accuracy over a specified dataset split.
 
     Note, this function does not explicitly execute the code within a
@@ -519,6 +535,9 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
             from the approximate posterior.
         normal_post (tuple, optional): See docstring of function
             :func:`probabilistic.regression.train_utils.compute_mse`
+        alphas (torch.tensor, optional): The coefficients to be used to
+            construct the weighted superposition of the embeddings. Only
+            relevant if option ``config.supsup_task_inference`` is active.
 
     Returns:
         (tuple): Tuple containing:
@@ -536,6 +555,18 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
     assert in_samples is not None or split_type in ['test', 'val', 'train']
     assert out_samples is None or in_samples is not None
     assert normal_post is None or hnet is None
+
+    if hasattr(config, 'supsup_task_inference') and \
+            config.supsup_task_inference and alphas is not None:
+
+        # Compute the average task embedding, simply computed as the weighted
+        # mean of all task-specific embeddings (i.e. weighting via alphas).
+        if config.use_cond_chunk_embs or hnet is None:
+            raise NotImplementedError()
+        task_embeddings = torch.stack( \
+            hnet.conditional_params[:shared.num_trained])
+
+        supsup_embedding = torch.mv(task_embeddings.T, alphas)[None, :] # [1,32]
 
     generator=None
     if deterministic_sampling:
@@ -605,7 +636,11 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
     if hnet is None:
         hnet_out = None
     else:
-        hnet_out = hnet.forward(cond_id=task_id)
+        if hasattr(config, 'supsup_task_inference') and \
+                config.supsup_task_inference and alphas is not None:
+            hnet_out = hnet.forward(cond_input=supsup_embedding)
+        else:
+            hnet_out = hnet.forward(cond_id=task_id)
 
     if normal_post is not None:
         w_mean = normal_post[0]
@@ -638,7 +673,7 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
         num_w = mnet.num_params
         if gauss_main:
             num_w = num_w // 2
-        return_vals.samples = np.empty((num_w_samples, num_w))
+        return_vals.samples = torch.empty((num_w_samples, num_w))
 
     if hasattr(config, 'non_growing_sf_cl3') and config.cl_scenario == 3 \
             and config.non_growing_sf_cl3:
@@ -647,7 +682,7 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
         softmax_width = len(allowed_outputs)
     else:
         softmax_width = data.num_classes
-    softmax_outputs = np.empty((num_w_samples, X.shape[0], softmax_width))
+    softmax_outputs = torch.empty((num_w_samples, X.shape[0], softmax_width))
 
     kwargs = mnet_kwargs(config, task_id, mnet)
 
@@ -699,8 +734,7 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
             if allowed_outputs is not None:
                 Y = Y[:, allowed_outputs]
 
-            softmax_outputs[j, sind:eind, :] = F.softmax(Y / ST, dim=1). \
-                detach().cpu().numpy()
+            softmax_outputs[j, sind:eind, :] = F.softmax(Y / ST, dim=1)
 
         if return_samples:
             if W is None:
@@ -710,9 +744,9 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
                     for p in W]).cpu().numpy()
 
     # Predictive distribution per sample.
-    pred_dists = softmax_outputs.mean(axis=0)
+    pred_dists = softmax_outputs.mean(dim=0)
 
-    pred_labels = np.argmax(pred_dists, axis=1)
+    pred_labels = torch.argmax(pred_dists, dim=1).detach().cpu().numpy()
     # Note, that for CL3 (without split heads) `labels` are already absolute,
     # not relative to the head (see post-processing of targets `T` above).
     if labels is not None:
@@ -726,24 +760,37 @@ def compute_acc(task_id, data, mnet, hnet, device, config, shared,
 
     if return_entropies:
         # We use the "maximum" trick to improve numerical stability.
-        return_vals.entropies = - np.sum(pred_dists * \
-                                         np.log(np.maximum(pred_dists, 1e-5)),
-                                         axis=1)
-        #return_vals.entropies = - np.sum(pred_dists * np.log(pred_dists),
+        #return_vals.entropies = - np.sum(pred_dists * \
+        #                                 np.log(np.maximum(pred_dists, 1e-5)),
         #                                 axis=1)
-        assert return_vals.entropies.size == X.shape[0]
+        return_vals.entropies = - torch.sum(pred_dists * torch.log( \
+                torch.where(pred_dists > 1e-5, pred_dists, \
+                            1e-5 * torch.ones_like(pred_dists))), axis=1)
+
+        assert return_vals.entropies.numel() == X.shape[0]
 
         # Normalize by maximum entropy.
         max_ent = - np.log(1.0 / data.num_classes)
         return_vals.entropies /= max_ent
 
+        # FIXME A bit ugly, but we need to backprop through entropies in the
+        # case of task selection with the entropy gradient.
+        if alphas is None:
+            return_vals.entropies = return_vals.entropies.detach().cpu().numpy()
+
     if return_confidence:
-        return_vals.confidence = np.max(pred_dists, axis=1)
-        assert return_vals.confidence.size == X.shape[0]
+        return_vals.confidence, _ = torch.max(pred_dists, dim=1)
+        assert return_vals.confidence.numel() == X.shape[0]
+
+        return_vals.confidence = return_vals.confidence.detach().cpu().numpy()
 
     if return_agreement:
-        return_vals.agreement = softmax_outputs.std(axis=0).mean(axis=1)
-        assert return_vals.agreement.size == X.shape[0]
+        # We use `unbiased=False` to be consistent with the numpy default.
+        return_vals.agreement = softmax_outputs.std(axis=0,
+                                                    unbiased=False).mean(axis=1)
+        assert return_vals.agreement.numel() == X.shape[0]
+
+        return_vals.agreement = return_vals.agreement.detach().cpu().numpy()
 
     return accuracy, return_vals
 
@@ -825,7 +872,9 @@ def save_summary_dict(config, shared, experiment, summary_fn=None):
                           'perm_mnist_ssge', 'perm_mnist_ssge_pf',
                           'cifar_resnet_ssge', 'cifar_resnet_ssge_pf',
                           'gmm_ewc', 'split_mnist_ewc', 'perm_mnist_ewc',
-                          'cifar_resnet_ewc']
+                          'cifar_resnet_ewc',
+                          'gmm_mt', 'split_mnist_mt', 'perm_mnist_mt',
+                          'cifar_resnet_mt']
 
     # "setup_summary_dict" must be called first.
     assert(hasattr(shared, 'summary'))
@@ -843,13 +892,16 @@ def save_summary_dict(config, shared, experiment, summary_fn=None):
         elif experiment == 'cifar_resnet_bbb':
             summary_fn = hpresnetbbb._SUMMARY_FILENAME
         else:
-            # Note, I made sure that all that incorporate AVB use the same filename.
+            # Note, I made sure that all that incorporate AVB use the same
+            # filename.
             if 'avb' in experiment:
                 summary_fn = hpsplitavb._SUMMARY_FILENAME
             elif 'ssge' in experiment:
                 summary_fn = hpsplitssge._SUMMARY_FILENAME
             elif 'ewc' in experiment:
                 summary_fn = hpsplitewc._SUMMARY_FILENAME
+            elif 'mt' in experiment:
+                summary_fn = hpsplitmt._SUMMARY_FILENAME
 
     with open(os.path.join(config.out_dir, summary_fn), 'w') as f:
         for k, v in shared.summary.items():
@@ -959,10 +1011,12 @@ def apply_lr_schedulers(config, shared, logger, task_id, data, mnet, hnet,
 
             with torch.no_grad():
                 if method == 'bbb':
+                    disable_lrt_test = config.disable_lrt_test \
+                        if hasattr(config, 'disable_lrt_test') else False
                     test_acc, _ = compute_acc(task_id, data, mnet, hnet, device,
                         config, shared, split_type='val',
                         deterministic_sampling=True,
-                        disable_lrt=config.disable_lrt_test)
+                        disable_lrt=disable_lrt_test)
                 else:
                     test_acc, _ = pcutils.compute_acc(task_id, data, mnet, hnet,
                         hhnet, device, config, shared, split_type='val',
@@ -1202,6 +1256,56 @@ def calc_reg_target(config, task_id, hnet, mnet=None):
             target_logvars[i] = [p.detach().clone() for p in target_logvars[i]]
 
     return targets, target_means, target_logvars
+
+def calc_gauss_reg_all_tasks(config, task_id, mnet, hnet, target_means=None,
+                   target_logvars=None, prev_theta=None, prev_task_embs=None,
+                   batch_size=None):
+    """Calculate a hypernet regularization for a Gaussian weight posteriors.
+
+    This function is simply a wrapper around :func:`calc_gauss_reg` to take
+    care of the regularization across several tasks, and allow regularizing
+    only on a subset of randomly selected tasks.
+
+    Args:
+        (....): See docstring of function :func:`calc_gauss_reg`.
+        target_means (list): Per-task mean of the regularization target.
+        target_logvars (list): Per-task log-variance of the regularization
+            target.
+        batch_size (int, optional): If specified, only a random subset of
+            previous tasks is regularized. If the given number is bigger than
+            the number of previous tasks, all previous tasks are regularized.
+
+            Note:
+                A ``batch_size`` smaller or equal to zero will be ignored
+                rather than throwing an error.
+
+    Return:
+        (float): The regularization loss across the number of specified tasks.
+    """
+    # Number of tasks to be regularized.
+    num_regs = task_id
+    ids_to_reg = list(range(num_regs))
+    if batch_size is not None and batch_size > 0:
+        if num_regs > batch_size:
+            ids_to_reg = np.random.choice(num_regs, size=batch_size,
+                                          replace=False).tolist()
+            num_regs = batch_size
+
+    target_mean = None
+    target_logvar = None
+    reg = 0
+    for i in ids_to_reg:
+        if prev_theta is None:
+            target_mean = target_means[i]
+            target_logvar = target_logvars[i]
+        reg += calc_gauss_reg(config, i, mnet, hnet,
+                                   target_mean=target_mean,
+                                   target_logvar=target_logvar,
+                                   prev_theta=prev_theta,
+                                   prev_task_embs=prev_task_embs)
+
+    return reg / num_regs
+
 
 def calc_gauss_reg(config, task_id, mnet, hnet, target_mean=None,
                    target_logvar=None, current_mean=None, current_logvar=None,

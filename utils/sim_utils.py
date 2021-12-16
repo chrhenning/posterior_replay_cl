@@ -45,6 +45,7 @@ from mnets.bio_conv_net import BioConvNet
 from mnets.chunk_squeezer import ChunkSqueezer
 from mnets.lenet import LeNet
 from mnets.mlp import MLP
+from mnets.resnet_imgnet import ResNetIN
 from mnets.resnet import ResNet
 from mnets.simple_rnn import SimpleRNN
 from mnets.wide_resnet import WRN
@@ -170,7 +171,7 @@ def setup_environment(config, logger_name='hnet_sim_logger'):
     return device, writer, logger
 
 def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
-                   no_weights=False):
+                   no_weights=False, **mnet_kwargs):
     """Generate a main network instance.
 
     A helper to generate a main network according to the given the user
@@ -192,6 +193,7 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             - ``mlp``: :class:`mnets.mlp.MLP`
             - ``resnet``: :class:`mnets.resnet.ResNet`
             - ``wrn``: :class:`mnets.wide_resnet.WRN`
+            - ``iresnet``: :class:`mnets.resnet_imgnet.ResNetIN`
             - ``zenke``: :class:`mnets.zenkenet.ZenkeNet`
             - ``bio_conv_net``: :class:`mnets.bio_conv_net.BioConvNet`
             - ``chunked_mlp``: :class:`mnets.chunk_squeezer.ChunkSqueezer`
@@ -213,12 +215,14 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             :func:`utils.cli_args.main_net_args`.
         no_weights (bool): Whether the main network should be generated without
             weights.
+        **mnet_kwargs: Additional keyword arguments that will be passed to the
+            main network constructor.
 
     Returns:
         The created main network model.
     """
     assert(net_type in ['mlp', 'lenet', 'resnet', 'zenke', 'bio_conv_net',
-                        'chunked_mlp', 'simple_rnn', 'wrn'])
+                        'chunked_mlp', 'simple_rnn', 'wrn', 'iresnet'])
 
     if cprefix is None:
         cprefix = ''
@@ -291,7 +295,9 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             #context_mod_post_activation=False,
             #context_mod_gain_offset=False,
             #out_fn=None,
-            verbose=True).to(device)
+            verbose=True,
+            **mnet_kwargs
+        ).to(device)
 
     elif net_type == 'resnet':
         assert(len(out_shape) == 1)
@@ -318,6 +324,7 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             #context_mod_post_activation=False,
             #context_mod_gain_offset=False,
             #context_mod_apply_pixel_wise=False
+            **mnet_kwargs
         ).to(device)
 
     elif net_type == 'wrn':
@@ -339,7 +346,7 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             distill_bn_stats=assign(bn_distill_stats, dkws['distill_bn_stats']),
             k=gc('wrn_widening_factor'),
             use_fc_bias=gc('wrn_use_fc_bias'),
-            dropout_rate=gc('dropout_rate')
+            dropout_rate=gc('dropout_rate'),
             #use_context_mod=False,
             #context_mod_inputs=False,
             #no_last_layer_context_mod=False,
@@ -347,6 +354,42 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             #context_mod_post_activation=False,
             #context_mod_gain_offset=False,
             #context_mod_apply_pixel_wise=False
+            **mnet_kwargs
+        ).to(device)
+
+    elif net_type == 'iresnet':
+        assert(len(out_shape) == 1)
+        assert hc('iresnet_use_fc_bias') and hc('iresnet_channel_sizes') \
+            and hc('iresnet_blocks_per_group') \
+            and hc('iresnet_bottleneck_blocks') \
+            and hc('iresnet_projection_shortcut')
+
+        # Default keyword arguments of class WRN.
+        dkws = misc.get_default_args(ResNetIN.__init__)
+
+        mnet = ResNetIN(in_shape=in_shape, num_classes=out_shape[0],
+            use_bias=assign(not no_bias, dkws['use_bias']),
+            use_fc_bias=gc('wrn_use_fc_bias'),
+            num_feature_maps=misc.str_to_ints(gc('iresnet_channel_sizes')),
+            blocks_per_group=misc.str_to_ints(gc('iresnet_blocks_per_group')),
+            projection_shortcut=gc('iresnet_projection_shortcut'),
+            bottleneck_blocks=gc('iresnet_bottleneck_blocks'),
+            #cutout_mod=False,
+            no_weights=no_weights,
+            use_batch_norm=assign(use_bn, dkws['use_batch_norm']),
+            bn_track_stats=assign(not bn_no_running_stats,
+                                  dkws['bn_track_stats']),
+            distill_bn_stats=assign(bn_distill_stats, dkws['distill_bn_stats']),
+            #chw_input_format=False,
+            verbose=True,
+            #use_context_mod=False,
+            #context_mod_inputs=False,
+            #no_last_layer_context_mod=False,
+            #context_mod_no_weights=False,
+            #context_mod_post_activation=False,
+            #context_mod_gain_offset=False,
+            #context_mod_apply_pixel_wise=False
+            **mnet_kwargs
         ).to(device)
 
     elif net_type == 'zenke':
@@ -359,7 +402,10 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             verbose=True, #arch='cifar',
             no_weights=no_weights,
             #init_weights=None,
-            dropout_rate=assign(dropout_rate, dkws['dropout_rate'])).to(device)
+            dropout_rate=assign(dropout_rate, dkws['dropout_rate']),
+            **mnet_kwargs
+        ).to(device)
+
     elif net_type == 'bio_conv_net':
         assert(len(out_shape) == 1)
 
@@ -376,6 +422,7 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             #context_mod_post_activation=False,
             #context_mod_gain_offset=False,
             #context_mod_apply_pixel_wise=False
+            **mnet_kwargs
         ).to(device)
 
     elif net_type == 'chunked_mlp':
@@ -405,7 +452,10 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             bn_track_stats=assign(not bn_no_running_stats,
                                   dkws['bn_track_stats']),
             distill_bn_stats=assign(bn_distill_stats, dkws['distill_bn_stats']),
-            verbose=True).to(device)
+            verbose=True,
+            **mnet_kwargs
+        ).to(device)
+
     elif net_type == 'lenet':
         assert hc('lenet_type')
         assert len(out_shape) == 1
@@ -417,9 +467,10 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
              arch=gc('lenet_type'),
              no_weights=no_weights,
              #init_weights=None,
-             dropout_rate=assign(dropout_rate, dkws['dropout_rate'])
+             dropout_rate=assign(dropout_rate, dkws['dropout_rate']),
              # TODO Context-mod weights.
-             ).to(device)
+             **mnet_kwargs
+        ).to(device)
 
     else:
         assert (net_type == 'simple_rnn')
@@ -451,7 +502,9 @@ def get_mnet_model(config, net_type, in_shape, out_shape, device, cprefix=None,
             use_lstm=use_lstm,
             use_bias=assign(not no_bias, dkws['use_bias']),
             no_weights=no_weights,
-            verbose=True).to(device)
+            verbose=True,
+            **mnet_kwargs
+        ).to(device)
 
     return mnet
 

@@ -36,6 +36,7 @@ from warnings import warn
 
 from hnets.mlp_hnet import HMLP
 from hnets.chunked_mlp_hnet import ChunkedHMLP
+from hnets.hnet_perturbation_wrapper import HPerturbWrapper
 from hnets.structured_mlp_hnet import StructuredHMLP
 from probabilistic import GaussianBNNWrapper
 
@@ -206,6 +207,8 @@ def gauss_hyperfan_init(hnet, mnet=None, mean_var=0.003, rho_var=0.083,
         eps (float): See argument ``eps`` of corresponding method
             ``apply_chunked_hyperfan_init``.
     """
+    if isinstance(hnet, HPerturbWrapper):
+        hnet = hnet.internal_hnet
     assert isinstance(hnet, (HMLP, ChunkedHMLP, StructuredHMLP))
 
     if mnet is not None:
@@ -281,122 +284,6 @@ def gauss_hyperfan_init(hnet, mnet=None, mean_var=0.003, rho_var=0.083,
         hnet.apply_chunked_hyperfan_init(method='in', use_xavier=use_xavier,
             uncond_var=uncond_var, cond_var=cond_var, eps=eps, mnet=mnet,
             target_vars=target_vars)
-
-
-def _init_hnet_outs(hnet, mean_var, rho_var, temb_var, ext_inp_var,
-                    keep_hyperfan_mean):
-    ### Compute input variance ###
-    # FIXME Code copied from `apply_hyperfan_init`.
-    if hnet._temb_std != -1:
-        temb_var += hnet._temb_std**2
-
-    assert hnet._size_ext_input is None or hnet._size_ext_input > 0
-    assert hnet._noise_dim == -1 or hnet._noise_dim > 0
-
-    inp_dim = hnet._te_dim + \
-        (hnet._size_ext_input if hnet._size_ext_input is not None else 0) \
-        + (hnet._noise_dim if hnet._noise_dim != -1 else 0)
-
-    input_variance = (hnet._te_dim / inp_dim) * temb_var
-    if hnet._size_ext_input is not None:
-        input_variance += (hnet._size_ext_input / inp_dim) * ext_inp_var
-    if hnet._noise_dim != -1:
-        input_variance += (hnet._noise_dim / inp_dim) * 1.
-
-    # NOTE We assume that the hypernetwork is initialized such that
-    # `input_variance` is equal to the variance of the last hidden layer.
-
-    ### Init weights.
-    # Note, bias vectors of output tensors wre already initialized to zero.
-
-    # For all output head weights.
-    assert len(hnet._theta_shapes) % 2 == 0
-    for i in range(len(hnet._hidden_dims), len(hnet._theta_shapes),
-                   2 if hnet._use_bias else 1):
-        is_mean = False
-        if (i - len(hnet._hidden_dims)) < len(hnet._theta_shapes) / 2:
-            is_mean = True
-            if keep_hyperfan_mean:
-                continue
-
-        fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out( \
-            hnet.theta[i])
-
-        # Ensure that we initialize the output weights such
-        # that the hypernet output has the desired target variance.
-        if is_mean:
-            var = mean_var / (fan_in * input_variance)
-        else:
-            var = rho_var / (fan_in * input_variance)
-
-        # Initialize output head weight tensor using `var`.
-        std = math.sqrt(var)
-        a = math.sqrt(3.0) * std
-        torch.nn.init._no_grad_uniform_(hnet.theta[i], -a, a)
-
-def _init_chunked_hnet_outs(hnet, mean_var, rho_var, temb_var, ext_inp_var,
-                            keep_hyperfan_mean, eps):
-    ### Compute input variance ###
-    # FIXME Code copied from `apply_chunked_hyperfan_init`.
-    if hnet._temb_std != -1:
-        temb_var += hnet._temb_std**2
-
-    assert hnet._noise_dim == -1 or hnet._noise_dim > 0
-
-    # TODO external inputs are not yet considered.
-    inp_dim = hnet._te_dim + \
-        (hnet._noise_dim if hnet._noise_dim != -1 else 0)
-        #(hnet._size_ext_input if hnet._size_ext_input is not None else 0) \
-
-    inp_var = (hnet._te_dim  / inp_dim) * temb_var
-    #if hnet._size_ext_input is not None:
-    #    inp_var += (hnet._size_ext_input  / inp_dim) * ext_inp_var
-    if hnet._noise_dim != -1:
-        inp_var += (hnet._noise_dim  / inp_dim) * 1.
-
-    c_dim = hnet._ce_dim
-
-    ### Inform user about improper input variances.
-    max_inp_var = (inp_dim+c_dim) / inp_dim * min(mean_var, rho_var)
-    max_inp_std = math.sqrt(max_inp_var)
-    if inp_var >= max_inp_var:
-        warn('Note, hypernetwork inputs should have an initial total ' +
-             'variance (std) smaller than %f (%f) in order for this ' \
-             % (max_inp_var, max_inp_std) + 'method to work properly.')
-
-
-    ### Compute variances and initialize chunk embeddings ###
-    c_vars = []
-    n_clipped = 0
-    for j in range(hnet._num_chunks):
-        # FIXME For simplicity, we just assume that the first half of the chunk
-        # embeddings is associated with mean output parameters and the rest
-        # with rho parameters.
-        is_mean = False
-        if j < math.ceil(hnet._num_chunks / 2):
-            is_mean = True
-            if keep_hyperfan_mean:
-                continue
-
-        if is_mean:
-            var = mean_var
-        else:
-            var = rho_var
-
-        c_var = 1./c_dim * ((inp_dim+c_dim) * var - inp_dim * inp_var)
-        if c_var < eps:
-            n_clipped += 1
-
-        c_vars.append(max(eps, c_var))
-
-        ### Initialize chunk embeddings ###
-        c_std = math.sqrt(c_vars[-1])
-        a = math.sqrt(3.0) * c_std
-        torch.nn.init._no_grad_uniform_(hnet.chunk_embeddings[j], -a, a)
-
-    if n_clipped > 0:
-        warn('Initial variance of %d/%d ' % (n_clipped, hnet._num_chunks) + \
-             'chunk embeddings had to be clipped.')
 
 if __name__ == '__main__':
     pass

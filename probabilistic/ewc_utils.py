@@ -129,6 +129,11 @@ def build_ewc_posterior(data_handlers, mnet, device, config, shared, logger,
                 post_means[pind] = curr_m
                 post_stds[pind] = curr_s
 
+        # Quick and dirty solution. Note, that a Pytorch `Normal` object with
+        # zero std will just return the mean.
+        if hasattr(config, 'det_multi_head') and config.det_multi_head:
+            post_stds = [torch.zeros_like(t) for t in post_stds]
+
         return post_means, post_stds
 
     return None

@@ -374,7 +374,7 @@ class GaussianBNNWrapper(nn.Module, MainNetInterface):
     def forward(self, x, weights=None, distilled_params=None, condition=None,
                 ret_sample=False, mean_only=False, extracted_mean=None,
                 extracted_rho=None, sample=None, disable_lrt=False,
-                rand_state=None):
+                rand_state=None, **kwargs):
         """Compute the output :math:`y` of this network given the input
         :math:`x`.
 
@@ -448,6 +448,8 @@ mnet_interface.MainNetInterface.hyper_shapes_learned`
                 pass is easily reproducible (except if other sources of noise
                 are involved in the underlying ``mnet`` such as dropout in train
                 mode).
+            **kwargs: Additional keyword arguments that are passed to the
+                ``forward`` method of the wrapped (underlying) network.
 
         Returns:
             The output :math:`y` of the network ``mnet`` using a weight sample
@@ -505,7 +507,7 @@ mnet_interface.MainNetInterface.hyper_shapes_learned`
 
             y = self._mnet.forward(x, mean, rho,
                 logvar_enc=self._logvar_encoding, mean_only=mean_only,
-                rand_state=rand_state)
+                rand_state=rand_state, **kwargs)
 
         else:
 
@@ -522,10 +524,11 @@ mnet_interface.MainNetInterface.hyper_shapes_learned`
 
             if isinstance(self._mnet, GaussianMLP):
                 assert disable_lrt
-                y = self._mnet.forward(x, None, None, sample=sample)
+                y = self._mnet.forward(x, None, None, sample=sample, **kwargs)
             else:
                 y = self._mnet.forward(x, weights=sample,
-                    distilled_params=distilled_params, condition=condition)
+                    distilled_params=distilled_params, condition=condition,
+                    **kwargs)
 
         if ret_sample:
             return y, sample
@@ -614,6 +617,65 @@ mnet_interface.MainNetInterface.hyper_shapes_learned`
 
         assert len(ret) == len(self.param_shapes) // 2
         return ret + ret
+
+    def sample_weights(self, weights=None, mean_only=False, extracted_mean=None,
+                       extracted_rho=None, rand_state=None):
+        """Sample and return weights from the BNN, e.g. to be reused in a
+        call to :meth:`forward`.
+
+        Args:
+            weights (list, optional): A list of parameters. The list must either
+                comply with the shapes in attribute :attr:`mnets.\
+mnet_interface.MainNetInterface.hyper_shapes_learned`
+                or the shapes in attribute
+                :attr:`mnets.mnet_interface.MainNetInterface.param_shapes`.
+            mean_only (bool, optional): Rather than drawing random sample, the
+                mean (:attr:`mean`) would be used.
+            extracted_mean (optional): The first return value of method
+                :meth:`extract_mean_and_rho`. Can be passed for compuational
+                efficiency reasons (if mean- and rho-values where already
+                computed). Otherwise, this method will simply call
+                :meth:`extract_mean_and_rho`. Passed ``weights`` will be ignored
+                if this argument is specified.
+
+                Requires that ``extracted_rho`` is set as well.
+            extracted_rho (optional): The second return value of method
+                :meth:`extract_mean_and_rho`. See description of
+                ``extracted_mean``.
+            rand_state (torch.Generator, optional): This generator would be used
+                to realize the reparametrization trick (i.e., the weight
+                sampling), if specified. This way, the behavior of the forward
+                pass is easily reproducible (except if other sources of noise
+                are involved in the underlying ``mnet`` such as dropout in train
+                mode).
+
+        Returns:
+            (list): A sample from the factorized weight distribution.
+        """
+        if extracted_mean is not None and weights is not None:
+            warn('Argument "weights" is ignored since "extracted_mean" is ' +
+                 'provided.')
+
+        if extracted_mean is None:
+            mean, rho = self.extract_mean_and_rho(weights=weights)
+        else:
+            assert len(extracted_mean) == len(extracted_rho) and \
+                   len(extracted_mean) == len(self._mnet.param_shapes)
+            # We should additionally assert that all shapes comply with
+            # `self._mnet.param_shapes`.
+
+            mean = extracted_mean
+            rho = extracted_rho
+
+        if mean_only:
+            sample = mean
+        else:
+            sample = putils.decode_and_sample_diag_gauss(mean, rho,
+                                                         logvar_enc=self._logvar_encoding,
+                                                         generator=rand_state,
+                                                         is_radial=self._is_radial)
+
+        return sample
 
 if __name__ == '__main__':
     pass

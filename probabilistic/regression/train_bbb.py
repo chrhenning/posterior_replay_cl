@@ -199,7 +199,7 @@ def test(data_handlers, mnet, hnet, device, config, shared, logger, writer,
                     mnet_j = mnet_other
                     hnet_j = hnet_other
                     hhnet_j = hhnet_other
-
+                    normal_post_j = None
                     if 'ewc' in shared.experiment_type:
                         normal_post_j = ewcutil.build_ewc_posterior( \
                             data_handlers, mnet_j, device, config, shared,

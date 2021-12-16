@@ -13,21 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# title          :probabilistic/prob_mnist/hpsearch_config_perm_ewc.py
+# title          :probabilistic/prob_mnist/hpsearch_config_perm_mt.py
 # author         :ch
 # contact        :henningc@ethz.ch
-# created        :01/18/2021
+# created        :09/03/2021
 # version        :1.0
 # python_version :3.6.8
 """
-Hyperparameter-search configuration for PermutedMNIST with EWC
---------------------------------------------------------------
+Hyperparameter-search configuration for PermutedMNIST with Multitask learning
+-----------------------------------------------------------------------------
 
 A configuration file for our custom hyperparameter search script. This
 configuration is meant for hyperparameter searches of the simulation defined by
-:mod:`probabilistic.prob_mnist.train_perm_ewc`.
+:mod:`probabilistic.prob_mnist.train_perm_mt`.
 """
-from probabilistic.prob_mnist import hpsearch_config_split_ewc as hpsplit
+from probabilistic.prob_mnist import hpsearch_config_split_mt as hpsplit
 from probabilistic.prob_mnist import hpsearch_config_split_bbb as hpsplitbbb
 
 ##########################################
@@ -51,12 +51,9 @@ from probabilistic.prob_mnist import hpsearch_config_split_bbb as hpsplitbbb
 
 grid = {
     ### Continual learning options ###
-    #'train_from_scratch' : [False],
     #'cl_scenario' : [1], # 1, 2 or 3
     #'split_head_cl3' : [False],
     #'num_tasks' : [10],
-    #'non_growing_sf_cl3' : [False],
-    #'det_multi_head': [False],
 
     ### Training options ###
     #'batch_size' : [128], # RELATED WORK - 128
@@ -74,7 +71,7 @@ grid = {
     #'clip_grad_norm' : [-1],
     #'plateau_lr_scheduler': [False],
     #'lambda_lr_scheduler': [False],
-    #'prior_variance' : [1.],
+    #'training_set_size': [-1],
 
     ### Main network options ###
     #'mlp_arch' : ['"1000,1000"'], # RELATED WORK - '"1000,1000"'
@@ -83,14 +80,11 @@ grid = {
     #'dropout_rate' : [-1],
     #'batchnorm' : [False],
     #'bn_no_running_stats': [False],
-    #'bn_no_stats_checkpointing': [False],
 
     ### Evaluation options ###
     #'val_iter' : [500],
     #'val_batch_size' : [1000],
     #'val_set_size' : [0],
-    #'full_test_interval' : [-1],
-    #'val_sample_size' : [10],
 
     ### Miscellaneous options ###
     #'no_cuda' : [False],
@@ -98,12 +92,6 @@ grid = {
     #'data_random_seed': [42],
     #'random_seed': [42],
     #'store_final_model': [False],
-    #'during_acc_criterion': ['"-1"'],
-
-    ### EWC options ###
-    'ewc_gamma' : [1.],
-    'ewc_lambda' : [1.],
-    'n_fisher' : [-1],
 
     ### Permuted MNIST options ###
     'padding': [2], # RELATED WORK - 2
@@ -141,7 +129,7 @@ conditions = conditions + hpsplitbbb._BASE_CONDITIONS
 # Name of the script that should be executed by the hyperparameter search.
 # Note, the working directory is set seperately by the hyperparameter search
 # script.
-_SCRIPT_NAME = 'train_perm_ewc.py'
+_SCRIPT_NAME = 'train_perm_mt.py'
 
 # This file is expected to reside in the output folder of the simulation.
 _SUMMARY_FILENAME = hpsplit._SUMMARY_FILENAME
@@ -179,13 +167,13 @@ _PERFORMANCE_SORT_ASC = False
 # script. The function handle should expect the list of command line options
 # as only parameter.
 # Example:
-# >>> from probabilistic.prob_mnist import train_args as targs
-# >>> f = lambda argv : targs.parse_cmd_arguments(mode='split_mnist_bbb',
+# >>> from classifier.imagenet import train_args as targs
+# >>> f = lambda argv : targs.parse_cmd_arguments(mode='cl_ilsvrc_cub',
 # ...                                             argv=argv)
 # >>> _ARGPARSE_HANDLE = f
-import probabilistic.ewc_args as targs
+import probabilistic.multitask_args as targs
 _ARGPARSE_HANDLE = lambda argv : targs.parse_cmd_arguments( \
-    mode='perm_mnist_ewc', argv=argv)
+    mode='perm_mnist_mt', argv=argv)
 
 if __name__ == '__main__':
     pass

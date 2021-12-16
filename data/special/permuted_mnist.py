@@ -269,7 +269,7 @@ input_to_torch_tensor`.
         self._padding = padding
         self._input_dim = (28+padding*2)**2
 
-        self._permutation = permutation # See setter below.
+        self.permutation = permutation # See setter below.
 
         if trgt_padding is not None and trgt_padding > 0:
             print('PermutedMNIST targets will be padded with %d zeroes.' \

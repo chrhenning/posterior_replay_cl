@@ -25,7 +25,8 @@ You can find instructions on how to reproduce our SplitCIFAR-10 experiments and 
 Please refer to the [README](docs/README.md) in the subfolder [docs](docs) for instructions on how to compile and open the documentation.
 
 ## Citation
-Please cite our corresponding papers if you use this code in your research project.
+
+Please cite our corresponding paper if you use this code in your research project.
 
 ```
 @inproceedings{posterior:replay:2021:henning:cervera,

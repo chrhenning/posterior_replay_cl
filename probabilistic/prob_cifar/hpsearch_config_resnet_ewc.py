@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# title          :probabilistic/prob_cifar/hpsearch_config_zenke_bbb.py
+# title          :probabilistic/prob_cifar/hpsearch_config_resnet_ewc.py
 # author         :ch
 # contact        :henningc@ethz.ch
-# created        :01/21/2012
+# created        :01/21/2021
 # version        :1.0
 # python_version :3.6.8
 """
@@ -56,7 +56,9 @@ grid = {
     #'split_head_cl3' : [False],
     #'num_tasks' : [6],
     #'num_classes_per_task': [10],
+    #'skip_tasks': [0],
     #'non_growing_sf_cl3' : [False],
+    #'det_multi_head': [False],
 
     ### Training options ###
     #'batch_size' : [32],
@@ -77,7 +79,8 @@ grid = {
     #'prior_variance' : [1.],
 
     ### Main network options ###
-    #'net_type': ['resnet'], #  'resnet', 'wrn', 'lenet', 'zenke', 'mlp'
+    #'net_type': ['resnet'], # 'resnet', 'wrn', 'iresnet', 'lenet', 'zenke',
+                             # 'mlp'
     #'mlp_arch': ['"400,400"'],
     #'lenet_type' : ['cifar'],
     #'resnet_block_depth': [5],
@@ -85,6 +88,11 @@ grid = {
     #'wrn_block_depth': [4],
     #'wrn_widening_factor': [10],
     #'wrn_use_fc_bias': [False],
+    #'iresnet_use_fc_bias': [False],
+    #'iresnet_channel_sizes': ['"64,64,128,256,512"'],
+    #'iresnet_blocks_per_group': ['"2,2,2,2"'],
+    #'iresnet_bottleneck_blocks': [False],
+    #'iresnet_projection_shortcut': [False],
     #'no_bias' : [False],
     #'dropout_rate' : [-1],
     #'no_batchnorm': [False],
