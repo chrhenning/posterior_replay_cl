@@ -16,9 +16,9 @@ You can find instructions on how to reproduce our 2D Mode Classification experim
 
 You can find instructions on how to reproduce our Split and Permuted MNIST experiments and on how to use the corresponding code in the subfolder [probabilistic/prob_mnist](probabilistic/prob_mnist).
 
-### SplitCIFAR-10 Experiments
+### SplitCIFAR-10/100 Experiments
 
-You can find instructions on how to reproduce our SplitCIFAR-10 experiments and on how to use the corresponding code in the subfolder [probabilistic/prob_cifar](probabilistic/prob_cifar).
+You can find instructions on how to reproduce our SplitCIFAR-10 and SplitCIFAR-100 experiments and on how to use the corresponding code in the subfolder [probabilistic/prob_cifar](probabilistic/prob_cifar).
 
 ## Documentation
 
