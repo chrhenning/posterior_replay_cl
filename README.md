@@ -1,6 +1,6 @@
 # Posterior Meta-Replay for Continual Learning
 
-In this study we propose posterior-replay continual learning, a framework for continually learning task-specific posterior approximations within a single shared meta-model. Across a range of experiments, we compare this approach to prior-focused CL, for which a single trade-off solution across all tasks is recursively obtained. Please see [our paper](https://arxiv.org/abs/2103.01133) for more details.
+In this study we propose posterior-replay continual learning, a framework for continually learning task-specific posterior approximations within a single shared meta-model. Across a range of experiments, we compare this approach to prior-focused CL, for which a single trade-off solution across all tasks is recursively obtained. Please see [our paper](https://arxiv.org/abs/2103.01133) for more details. You can also checkout our [poster presentation](https://neurips.cc/virtual/2021/poster/27724) or [this longer talk](https://www.youtube.com/watch?v=IF5twAVZ4Ns) in which we present the project.
 
 If you are interested in working with **hypernetworks in PyTorch**, check out the package [hypnettorch](https://github.com/chrhenning/hypnettorch).
 
